@@ -3,3 +3,8 @@ file: docs/font-files/InterVariable.ttf
 preview sans is an inter derivative instantiated at weight 600 using fonttools.
 the family was renamed to respect the reserved font name.
 license: SIL Open Font License 1.1, see LICENSE.txt.
+
+font awesome free solid 6.7.2:
+https://github.com/FortAwesome/Font-Awesome/tree/6.7.2
+file: webfonts/fa-solid-900.ttf (unmodified)
+license: SIL Open Font License 1.1, see FONT-AWESOME-LICENSE.txt.

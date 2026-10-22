@@ -22,8 +22,12 @@ set `-DGUI_BUILD_PREVIEW=OFF` to build just the portable library and interaction
 
 the default bridge assist page follows the supplied 772 × 625 image. click or drag sliders, use plus/minus, toggle switches, select conditions, or click the key binding and press a key (escape clears it). close the page to browse categories; search filters the visible category.
 
+press insert to fade the preview in or out. switches animate over 120 ms, page/category changes over 140 ms, wheel scrolling over 160 ms, and menu visibility over 180 ms. slider dragging remains attached to the pointer. these timings are estimates from the reference footage, not verified original source timings; video-edit crossfades are excluded.
+
+font awesome free 6.7.2 solid supplies sidebar and control icons. keep `fa-solid-900.ttf` beside the text font, or pass its path as the second argument to `initialize`.
+
 ## fidelity
 
-bridge assist is the primary reference page. video-observed controls for aim assist, auto clicker, chest stealer, weapons, free look, indicators, name tags, and esp are also included. unobserved settings and categories are incomplete; dropdowns on secondary pages only show their observed selection. fonts, sidebar icons, avatar, and background mark are approximations because source assets were not supplied. this is not a verified pixel-identical reconstruction of every video screen.
+bridge assist is the primary reference page. video-observed controls for aim assist, auto clicker, chest stealer, weapons, free look, indicators, name tags, and esp are also included. unobserved settings and categories are incomplete; dropdowns on secondary pages only show their observed selection. the text font, avatar, background mark, and animation curves are approximations because source assets were not supplied. this is not a verified pixel-identical reconstruction of every video screen.
 
-dear imgui v1.91.9b is vendored under its mit license. the inter-derived preview sans font is bundled under its open font license in `assets/fonts`.
+dear imgui v1.91.9b is vendored under its mit license. preview sans and font awesome fonts are bundled under their open font licenses in `assets/fonts`.

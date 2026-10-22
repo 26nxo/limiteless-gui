@@ -95,14 +95,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     wchar_t executable[MAX_PATH];
     GetModuleFileNameW(nullptr, executable, MAX_PATH);
     auto font = std::filesystem::path(executable).parent_path() / "assets/fonts/PreviewSans.ttf";
-    if (!std::filesystem::exists(font)) {
-        MessageBoxW(window, L"Missing assets/fonts/PreviewSans.ttf", L"Preview error", MB_ICONERROR);
+    if (!ui.initialize(font.string().c_str())) {
+        MessageBoxW(window, L"Missing or invalid preview fonts in assets/fonts", L"Preview error",
+                    MB_ICONERROR);
         ImGui::DestroyContext();
         cleanup();
         DestroyWindow(window);
         return 1;
     }
-    ui.initialize(font.string().c_str());
     ImGui_ImplWin32_Init(window);
     ImGui_ImplDX11_Init(device, context);
     ShowWindow(window, SW_SHOWDEFAULT);

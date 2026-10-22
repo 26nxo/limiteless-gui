@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <gui/animation.hpp>
 #include <imgui.h>
 #include <map>
 #include <string>
@@ -13,6 +14,7 @@ struct ModuleState {
     std::map<std::string, bool> switches;
 };
 struct State {
+    bool visible = true;
     Category category = Category::Player;
     std::string page = "Bridge Assist";
     bool enabled = false;
@@ -27,10 +29,16 @@ struct State {
 };
 class Interface {
   public:
-    bool initialize(const char *font_path);
+    bool initialize(const char *font_path, const char *icon_font_path = nullptr);
     void render(State &state);
 
   private:
     ImFont *font_ = nullptr;
+    ImFont *icons_ = nullptr;
+    std::map<ImGuiID, Animation> animations_;
+    Animation entrance_;
+    Animation page_fade_;
+    std::string previous_page_;
+    Category previous_category_ = Category::Player;
 };
 }

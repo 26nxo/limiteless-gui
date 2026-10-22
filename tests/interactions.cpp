@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <gui/gui.hpp>
+#include <imgui_internal.h>
 #include <iostream>
 
 namespace {
@@ -11,6 +12,23 @@ void require(bool condition, const char *message) {
 }
 }
 int main() {
+    gui::Animation animation;
+    animation.reset(0);
+    const float midpoint = animation.update(1, 0.06f, 0.12f);
+    require(midpoint > 0 && midpoint < 1, "animation snapped instead of interpolating");
+    require(animation.update(1, 0.06f, 0.12f) == 1, "animation did not finish at its target");
+    const float reverse = animation.update(0, 0.03f, 0.12f);
+    require(reverse > 0 && reverse < 1, "animation reversal failed");
+    require(animation.update(0, 1.0f, 0.12f) == 0, "animation overshot after a stalled frame");
+    gui::Animation low_fps, high_fps;
+    low_fps.reset(0);
+    high_fps.reset(0);
+    float slow = 0, fast = 0;
+    for (int i = 0; i < 3; ++i)
+        slow = low_fps.update(1, 1.0f / 30, 0.18f);
+    for (int i = 0; i < 12; ++i)
+        fast = high_fps.update(1, 1.0f / 120, 0.18f);
+    require(std::abs(slow - fast) < 0.0001f, "animation timing depends on frame rate");
     ImGui::CreateContext();
     gui::Interface ui;
     gui::State state;
@@ -21,10 +39,16 @@ int main() {
     unsigned char *pixels;
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    require(io.Fonts->Fonts.Size == 2, "icon font was not loaded");
+    for (ImWchar glyph : {0xf140, 0xf21d, 0xf70c, 0xf06e, 0xf121, 0xf234, 0xf0c2, 0xf1de, 0xf002, 0xf013,
+                          0xf00d, 0xf11c, 0xf078, 0xf067, 0xf068})
+        require(io.Fonts->Fonts[1]->FindGlyphNoFallback(glyph) != nullptr, "font awesome glyph is missing");
     auto frame = [&]() {
         ImGui::NewFrame();
         ui.render(state);
         ImGui::Render();
+        require(ImGui::GetCurrentContext()->ErrorCountCurrentFrame == 0,
+                "imgui reported a stack or rendering error");
     };
     auto click = [&](float x, float y) {
         io.AddMousePosEvent(x, y);
@@ -82,9 +106,32 @@ int main() {
     require(state.page == "Aim Assist", "aim assist navigation failed");
     click(715, 143);
     require(state.modules["Aim Assist"].enabled && !state.enabled, "module states are not isolated");
+    io.AddMousePosEvent(450, 400);
+    frame();
+    io.AddMouseWheelEvent(0, -2);
+    frame();
+    for (int i = 0; i < 20; ++i)
+        frame();
+    bool scrolled = false;
+    for (auto *window : ImGui::GetCurrentContext()->Windows)
+        if (window->WasActive && (window->Flags & ImGuiWindowFlags_ChildWindow) && window->Scroll.y > 0)
+            scrolled = true;
+    require(scrolled, "animated wheel scrolling failed");
     io.DisplaySize = {1158, 938};
     frame();
     require(ImGui::GetDrawData()->TotalVtxCount > 0, "resized renderer produced no geometry");
+    io.AddKeyEvent(ImGuiKey_Insert, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Insert, false);
+    for (int i = 0; i < 20; ++i)
+        frame();
+    require(!state.visible && ImGui::GetDrawData()->TotalVtxCount == 0, "menu did not fade out");
+    io.AddKeyEvent(ImGuiKey_Insert, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Insert, false);
+    for (int i = 0; i < 20; ++i)
+        frame();
+    require(state.visible && ImGui::GetDrawData()->TotalVtxCount > 0, "menu did not fade back in");
     ImGui::DestroyContext();
     std::cout << "gui interaction checks passed\n";
 }
