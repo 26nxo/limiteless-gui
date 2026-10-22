@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <map>
 #include <string>
+#include <vector>
 
 namespace limitless_gui {
 enum class Category { Combat, Player, Move, Visuals, Misc, Friends, Configs, Settings };
@@ -14,6 +15,9 @@ struct ModuleState {
     std::map<std::string, bool> switches;
     std::map<std::string, int> choices;
     std::map<std::string, std::string> texts;
+    std::map<std::string, std::array<float, 2>> ranges;
+    std::map<std::string, std::array<float, 4>> colors;
+    std::map<std::string, std::vector<bool>> multi_choices;
 };
 struct State {
     bool visible = true;

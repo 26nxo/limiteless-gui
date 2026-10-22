@@ -79,6 +79,10 @@ int main() {
     frame();
     frame();
     require(ImGui::GetDrawData()->TotalVtxCount > 0, "renderer produced no geometry");
+    require(state.modules["Widget Gallery"].multi_choices.contains("Target groups"),
+            "multi combobox was not initialized");
+    require(state.modules["Widget Gallery"].colors.contains("Accent color"),
+            "color picker was not initialized");
     require(state.page == "Widget Gallery", "gallery page did not open by default");
     click(715, 143);
     require(state.modules["Widget Gallery"].enabled, "enabled toggle failed");
@@ -93,6 +97,12 @@ int main() {
     click(695, 430);
     require(state.modules["Widget Gallery"].switches["Enable animations"],
             "custom toggle interaction failed");
+    click(236, 507);
+    require(state.modules["Widget Gallery"].switches["Show grid"],
+            "checkbox interaction failed");
+    click(700, 559);
+    require(state.modules["Widget Gallery"].ranges["Visible range"][1] > 75,
+            "double slider interaction failed");
     click(722, 75);
     require(state.page.empty(), "close button failed");
     click(659, 85);

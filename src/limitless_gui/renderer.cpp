@@ -128,6 +128,112 @@ struct Canvas {
         ImGui::PopID();
         return clicked;
     }
+    bool checkbox(const char *id, const char *caption, float x, float y, bool &value) {
+        ImGui::PushID(id);
+        const bool clicked = hit("box", x, y, 22, 22);
+        if (clicked)
+            value = !value;
+        const float checked = animate("checked", value ? 1.0f : 0.0f, 0.14f, Easing::Smoothstep);
+        const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.10f,
+                                    Easing::Smoothstep);
+        rect(x, y, 22, 22, blend(IM_COL32(27, 27, 27, 255), IM_COL32(37, 37, 37, 255), hover), 5);
+        outline(x, y, 22, 22, blend(border, pink, checked), 5);
+        if (checked > 0.01f) {
+            line(x + 5, y + 11, x + 9, y + 15, pink, 2);
+            line(x + 9, y + 15, x + 17, y + 6, pink, 2);
+        }
+        label(x + 32, y + 2, caption, 17, value ? text : muted);
+        ImGui::PopID();
+        return clicked;
+    }
+    void range_slider(const char *id, const char *caption, float y, std::array<float, 2> &range,
+                      float maximum) {
+        ImGui::PushID(id);
+        label(225, y, caption);
+        right(739, y, "range", 13, muted);
+        hit("track", 249, y + 17, 464, 20);
+        if (ImGui::IsItemActive()) {
+            const float ratio = std::clamp(((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464.0f,
+                                           0.0f, 1.0f);
+            const float value = ratio * maximum;
+            const int index = std::abs(value - range[0]) < std::abs(value - range[1]) ? 0 : 1;
+            range[index] = std::clamp(value, 0.0f, maximum);
+            if (range[0] > range[1])
+                std::swap(range[0], range[1]);
+        }
+        const float first = std::clamp(range[0] / maximum, 0.0f, 1.0f);
+        const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
+        rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
+        rect(249 + 464 * first, y + 20, 464 * (second - first), 10, pink, 5);
+        circle(249 + 464 * first, y + 25, 5, IM_COL32(53, 24, 36, 255));
+        circle(249 + 464 * second, y + 25, 5, IM_COL32(53, 24, 36, 255));
+        char values[48];
+        std::snprintf(values, sizeof(values), "%.0f - %.0f", range[0], range[1]);
+        right(739, y + 29, values, 13, muted);
+        ImGui::PopID();
+    }
+    void color_picker(const char *id, const char *caption, float y, std::array<float, 4> &color) {
+        ImGui::PushID(id);
+        label(225, y + 5, caption);
+        const bool clicked = hit("swatch", 695, y, 44, 24);
+        const bool open = ImGui::IsPopupOpen(id);
+        rect(695, y, 44, 24, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 12);
+        outline(695, y, 44, 24, open ? pink : border, 12);
+        if (clicked)
+            ImGui::OpenPopup(id);
+        if (begin_popup(id, 430, y + 30, 320, 300)) {
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {12, 12});
+            ImGui::ColorPicker4("##color", color.data(), ImGuiColorEditFlags_NoSidePreview);
+            ImGui::PopStyleVar();
+            end_popup();
+        }
+        ImGui::PopID();
+    }
+    void multi_combo(const char *id, const char *caption, float y, std::vector<bool> &selected,
+                     const char *const *options, int count) {
+        ImGui::PushID(id);
+        selected.resize(count, false);
+        std::string summary;
+        for (int i = 0; i < count; ++i)
+            if (selected[i]) {
+                if (!summary.empty())
+                    summary += ", ";
+                summary += options[i];
+            }
+        if (summary.empty())
+            summary = "None";
+        const bool clicked = hit("field", 225, y, 514, 52);
+        const bool open = ImGui::IsPopupOpen(id);
+        rect(225, y, 514, 52, IM_COL32(26, 26, 26, 255), 7);
+        outline(225, y, 514, 52, open ? IM_COL32(62, 62, 62, 255) : border, 7);
+        label(238, y + 16, caption, 17, text);
+        right(642, y + 16, summary.c_str(), 15, text);
+        line(654, y + 10, 654, y + 42, IM_COL32(45, 45, 45, 255), 1);
+        const ImVec2 center = p(678, y + 26);
+        if (open)
+            d->AddTriangleFilled({center.x - 7 * scale, center.y + 4 * scale},
+                                 {center.x + 7 * scale, center.y + 4 * scale},
+                                 {center.x, center.y - 5 * scale}, tint(text));
+        else
+            d->AddTriangleFilled({center.x - 7 * scale, center.y - 4 * scale},
+                                 {center.x + 7 * scale, center.y - 4 * scale},
+                                 {center.x, center.y + 5 * scale}, tint(muted));
+        if (clicked)
+            ImGui::OpenPopup(id);
+        if (begin_popup(id, 225, y + 54, 514, count * 42.0f)) {
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
+            for (int i = 0; i < count; ++i) {
+                ImGui::PushStyleColor(ImGuiCol_Text, selected[i] ? pink : text);
+                if (ImGui::Selectable(options[i], selected[i], ImGuiSelectableFlags_DontClosePopups,
+                                      {514 * scale, 42 * scale}))
+                    selected[i] = !selected[i];
+                ImGui::PopStyleColor();
+            }
+            ImGui::PopStyleVar();
+            end_popup();
+        }
+        ImGui::PopID();
+    }
     void text_input(const char *id, const char *name, float y, std::string &value) {
         label(225, y, name, 17, muted);
         ImGui::PushID(id);
@@ -270,9 +376,15 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &) {
         c.combo(label, label, y, it->second, options, count);
         y += 64;
     };
+    auto multi = [&](const char *label, const char *const *options, int count) {
+        auto [it, inserted] = state.multi_choices.try_emplace(label, std::vector<bool>(count, false));
+        c.multi_combo(label, label, y, it->second, options, count);
+        y += 64;
+    };
     static constexpr const char *types[] = {"Swords", "Axes", "Bows", "Pickaxes"};
     static constexpr const char *themes[] = {"Dark", "Midnight", "Light"};
     static constexpr const char *sizes[] = {"Small", "Medium", "Large"};
+    static constexpr const char *targets[] = {"Players", "Mobs", "Animals", "Friends"};
     section("Combobox");
     combo("Allowed types", types, 4, 0);
     combo("Theme", themes, 3, 0);
@@ -280,7 +392,19 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &) {
     slider("Accent strength", 0.72f, 1.0f, 0.01f, "%.2f");
     toggle("Enable animations");
     toggle("Show descriptions", true);
+    auto [grid, grid_inserted] = state.switches.try_emplace("Show grid", false);
+    c.checkbox("grid", "Show grid", 225, y, grid->second);
+    y += 38;
+    auto [range, range_inserted] = state.ranges.try_emplace("Visible range", std::array<float, 2>{20, 75});
+    c.range_slider("visible_range", "Visible range", y, range->second, 100);
+    y += 58;
     combo("Control size", sizes, 3, 1);
+    section("Multi selection and color");
+    multi("Target groups", targets, 4);
+    auto [accent, accent_inserted] =
+        state.colors.try_emplace("Accent color", std::array<float, 4>{0.85f, 0.22f, 0.47f, 1.0f});
+    c.color_picker("accent", "Accent color", y, accent->second);
+    y += 48;
     section("Text and actions");
     auto [profile, profile_inserted] = state.texts.try_emplace("Profile name", "limitless gui");
     c.text_input("profile", "Profile name", y, profile->second);
@@ -290,6 +414,9 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &) {
         state.numbers.clear();
         state.switches.clear();
         state.texts.clear();
+        state.ranges.clear();
+        state.colors.clear();
+        state.multi_choices.clear();
     }
     c.button("secondary", "Secondary", 397, y, 160);
     y += 58;

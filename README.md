@@ -23,7 +23,7 @@ add `--screenshot capture.bmp` to save the rendered frame and exit.
 
 set `-DLIMITLESS_GUI_BUILD_PREVIEW=OFF` to build just the portable library and interaction checks. link the `limitless_gui_core` target from a host with its own imgui backend.
 
-the default widget gallery follows the supplied 772 × 625 image. it contains custom comboboxes, sliders, toggles, text inputs, buttons, progress indicators, and key binding controls. close the page to browse categories; search filters the visible category. hold the left mouse button in the sidebar and drag across categories to switch.
+the default widget gallery follows the supplied 772 × 625 image. it contains custom comboboxes, multi-comboboxes, sliders, double sliders, toggles, normal checkboxes, color pickers, text inputs, buttons, progress indicators, and key binding controls. close the page to browse categories; search filters the visible category. hold the left mouse button in the sidebar and drag across categories to switch.
 
 press insert to show or hide the preview; the menu fades out and stops accepting input while closing. category changes use a spring selector with color crossfades, a 160 ms content fade, and a short directional slide. switches and slider fills ease toward their values, hover states transition smoothly, wheel scrolling eases toward its target, and popups fade and lift into place. dragging the category selector and dragging a slider remain immediate.
 
