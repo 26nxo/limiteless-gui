@@ -1,0 +1,5 @@
+https://github.com/ocornut/imgui
+tag: v1.91.9b
+commit: f5befd2d29e66809cd1110a152e375a7f1981f06
+unmodified core and win32/direct3d 11 backend sources.
+unused examples, documentation, and backends omitted.
