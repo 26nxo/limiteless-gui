@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <gui/gui.hpp>
 #include <gui/icons.hpp>
+#include <gui/layout.hpp>
 #include <string_view>
 
 namespace gui {
@@ -18,34 +19,10 @@ struct Canvas {
     ImVec2 origin;
     float scale;
     ImFont *icon_font;
-    std::map<ImGuiID, Animation> &animations;
-    float animate(const char *id, float target, float duration, bool snap = false) {
-        return animations[ImGui::GetID(id)].update(target, ImGui::GetIO().DeltaTime, duration, snap);
-    }
-    void smooth_scroll() {
-        auto &motion = animations[ImGui::GetID("scroll_motion")];
-        const float current = ImGui::GetScrollY();
-        float target = motion.target();
-        const auto &io = ImGui::GetIO();
-        if (ImGui::IsWindowHovered() && io.MouseWheel != 0)
-            target = std::clamp(target - io.MouseWheel * 80 * scale, 0.0f, ImGui::GetScrollMaxY());
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            motion.reset(current);
-            target = current;
-        }
-        ImGui::SetScrollY(
-            motion.update(std::clamp(target, 0.0f, ImGui::GetScrollMaxY()), io.DeltaTime, 0.16f));
-    }
     ImU32 tint(ImU32 color) const {
         ImVec4 value = ImGui::ColorConvertU32ToFloat4(color);
         value.w *= ImGui::GetStyle().Alpha;
         return ImGui::ColorConvertFloat4ToU32(value);
-    }
-    static ImU32 blend(ImU32 a, ImU32 b, float t) {
-        const auto x = ImGui::ColorConvertU32ToFloat4(a);
-        const auto y = ImGui::ColorConvertU32ToFloat4(b);
-        return ImGui::ColorConvertFloat4ToU32(
-            {x.x + (y.x - x.x) * t, x.y + (y.y - x.y) * t, x.z + (y.z - x.z) * t, x.w + (y.w - x.w) * t});
     }
     ImVec2 p(float x, float y) const {
         return {origin.x + x * scale, origin.y + y * scale};
@@ -65,42 +42,25 @@ struct Canvas {
         else
             d->AddCircle(p(x, y), r * scale, tint(c), 0, 2 * scale);
     }
-    void label(float x, float y, const char *s, float size = 15, ImU32 c = text) {
-        d->AddText(font, size * 1.15f * scale, p(x, y), tint(c), s);
+    void label(float x, float y, const char *s, float size = 17, ImU32 c = text) {
+        d->AddText(font, size * scale, p(x, y), tint(c), s);
     }
-    void right(float x, float y, const char *s, float size = 15, ImU32 c = text) {
-        const auto w = font->CalcTextSizeA(size * 1.15f, 10000, 0, s).x;
+    void right(float x, float y, const char *s, float size = 17, ImU32 c = text) {
+        const auto w = font->CalcTextSizeA(size, 10000, 0, s).x;
         label(x - w, y, s, size, c);
     }
     bool hit(const char *id, float x, float y, float w, float h) {
         ImGui::SetCursorScreenPos(p(x, y));
         return ImGui::InvisibleButton(id, {w * scale, h * scale});
     }
-    bool begin_popup(const char *id) {
-        const bool open = ImGui::IsPopupOpen(id);
-        ImGui::PushID(id);
-        const float alpha = animate("popup_alpha", open ? 1.0f : 0.0f, 0.12f);
-        ImGui::PopID();
-        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * alpha);
-        if (ImGui::BeginPopup(id))
-            return true;
-        ImGui::PopStyleVar();
-        return false;
-    }
-    void end_popup() {
-        ImGui::EndPopup();
-        ImGui::PopStyleVar();
-    }
     void toggle(const char *id, float x, float y, bool &value) {
         ImGui::PushID(id);
-        auto &motion = animations[ImGui::GetID("position")];
-        motion.update(value ? 1.0f : 0.0f, 0, 0.12f);
         if (hit(id, x, y, 44, 24))
             value = !value;
-        const float t = motion.update(value ? 1.0f : 0.0f, ImGui::GetIO().DeltaTime, 0.12f);
-        rect(x, y, 44, 24, blend(IM_COL32(27, 27, 27, 255), pink, t), 12);
+        rect(x, y, 44, 24, value ? pink : IM_COL32(27, 27, 27, 255), 12);
         outline(x, y, 44, 24, border, 12);
-        circle(x + 12 + 20 * t, y + 12, 9, blend(IM_COL32(63, 63, 63, 255), IM_COL32(33, 26, 29, 255), t));
+        circle(x + (value ? 32 : 12), y + 12, 9,
+               value ? IM_COL32(33, 26, 29, 255) : IM_COL32(63, 63, 63, 255));
         ImGui::PopID();
     }
     void slider(const char *id, const char *name, float y, float &value, float maximum, float step,
@@ -123,7 +83,7 @@ struct Canvas {
                     step,
                 0.0f, maximum);
         rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
-        const float display = animate("fill", value / maximum, 0.10f, ImGui::IsItemActive());
+        const float display = value / maximum;
         if (display > 0) {
             float w = 464 * display;
             rect(249, y + 20, w, 10, pink, 5);
@@ -149,19 +109,27 @@ struct Entry {
 };
 constexpr Entry entries[] = {
     {Category::Combat, "Aim Assist", "Aims at players for you"},
-    {Category::Combat, "Auto Clicker", "Clicks while holding mouse"},
+    {Category::Combat, "Auto Clicker", "Clicks while holding LMB"},
     {Category::Combat, "Auto Block", "Blocks after hitting a player"},
     {Category::Combat, "Auto Weapon", "Selects your weapon when aiming at a player"},
-    {Category::Combat, "Back Track", "Hit players at their past positions"},
+    {Category::Combat, "Back Track", "Hit players at their past position"},
     {Category::Combat, "Jump Reset", "Jumps on hit to reduce knockback"},
+    {Category::Combat, "Reach", ""},
     {Category::Combat, "Weapons", ""},
     {Category::Player, "Auto Tool", "Picks the best tool when mining"},
     {Category::Player, "Bridge Assist", "Sneaks at block edges"},
     {Category::Player, "Fast Place", "Reduces block placement delay"},
     {Category::Player, "Chest Stealer", "Loots chests automatically"},
-    {Category::Player, "Auto Pot", "Throws healing potions at low health"},
-    {Category::Player, "Auto Soup", "Uses soup at low health"},
+    {Category::Player, "Auto Pot", "Throws healing potions on keybind"},
+    {Category::Player, "Auto Soup", "Auto-eats soups when low on HP"},
     {Category::Player, "Refill", ""},
+    {Category::Move, "WTap", "Resets sprint to increase knockback"},
+    {Category::Move, "STap", "Steps back after a hit to increase knockback"},
+    {Category::Move, "Auto Sprint", "Always sprint while moving"},
+    {Category::Move, "Keep Sprint", "Keep your momentum after attacking a player"},
+    {Category::Move, "Fast Stop", "Stop instantly by counter-strafing"},
+    {Category::Move, "No Slow", "No slowdown while using items"},
+    {Category::Move, "No Jump Delay", ""},
     {Category::Visuals, "Player ESP", ""},
     {Category::Visuals, "Chest ESP", ""},
     {Category::Visuals, "Name Tags", ""},
@@ -182,7 +150,7 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &name) {
     };
     auto toggle = [&](const char *label, bool initial = false) {
         auto [it, inserted] = state.switches.try_emplace(label, initial);
-        c.label(225, y + 3, label, 15, it->second ? text : muted);
+        c.label(225, y + 3, label, 17, it->second ? text : muted);
         c.toggle(label, 695, y, it->second);
         y += 44;
     };
@@ -201,9 +169,9 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &name) {
             ImGui::OpenPopup(label);
         ImGui::SetNextWindowPos(c.p(225, y + 40));
         ImGui::SetNextWindowSize({514 * c.scale, 0});
-        if (c.begin_popup(label)) {
+        if (ImGui::BeginPopup(label)) {
             ImGui::Selectable(value, true);
-            c.end_popup();
+            ImGui::EndPopup();
         }
         y += 52;
     };
@@ -258,12 +226,12 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &name) {
             ImGui::OpenPopup("perspective");
         ImGui::SetNextWindowPos(c.p(225, y + 40));
         ImGui::SetNextWindowSize({514 * c.scale, 0});
-        if (c.begin_popup("perspective")) {
+        if (ImGui::BeginPopup("perspective")) {
             if (ImGui::Selectable("First person", !it->second))
                 it->second = false;
             if (ImGui::Selectable("Third person", it->second))
                 it->second = true;
-            c.end_popup();
+            ImGui::EndPopup();
         }
         y += 52;
     } else if (name == "Indicators") {
@@ -353,8 +321,6 @@ bool Interface::initialize(const char *path, const char *icon_path) {
         font_ = io.Fonts->AddFontDefault();
     static constexpr ImWchar ranges[] = {0xf000, 0xf8ff, 0};
     icons_ = io.Fonts->AddFontFromFileTTF(icon_file.string().c_str(), 22, &config, ranges);
-    animations_.clear();
-    entrance_.reset(0);
     page_fade_.reset(0);
     io.IniFilename = nullptr;
     return font_ != nullptr && icons_ != nullptr;
@@ -362,8 +328,7 @@ bool Interface::initialize(const char *path, const char *icon_path) {
 void Interface::render(State &s) {
     if (!s.binding && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Insert, false))
         s.visible = !s.visible;
-    const float entrance = entrance_.update(s.visible ? 1.0f : 0.0f, ImGui::GetIO().DeltaTime, 0.18f);
-    if (entrance <= 0)
+    if (!s.visible)
         return;
     const auto size = ImGui::GetIO().DisplaySize;
     const float scale = std::min(size.x / 772.0f, size.y / 625.0f);
@@ -371,11 +336,10 @@ void Interface::render(State &s) {
     ImGui::SetNextWindowPos({0, 0});
     ImGui::SetNextWindowSize(size);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * entrance);
     ImGui::Begin("preview", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove |
-                     ImGuiWindowFlags_NoSavedSettings | (s.visible ? 0 : ImGuiWindowFlags_NoInputs));
-    Canvas c{ImGui::GetWindowDrawList(), font_, origin, scale, icons_, animations_};
+                     ImGuiWindowFlags_NoSavedSettings);
+    Canvas c{ImGui::GetWindowDrawList(), font_, origin, scale, icons_};
     c.rect(1, 3, 770, 622, bg, 18);
     c.label(695, 6, "timewarp", 16, muted);
     c.d->PushClipRect(c.p(0, 30), c.p(182, 480), true);
@@ -387,21 +351,26 @@ void Interface::render(State &s) {
     c.d->PopClipRect();
     const char *categories[] = {"Combat", "Player",  "Move",    "Visuals",
                                 "Misc",   "Friends", "Configs", "Settings"};
+    c.hit("category_navigation", 14, 47, 154, 392);
+    const bool dragging_category = ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left);
     for (int i = 0; i < 8; ++i) {
-        float y = 53 + i * 49.4f;
-        float w = font_->CalcTextSizeA(18 * 1.15f, 1000, 0, categories[i]).x + 62;
-        if (c.hit(categories[i], 14, y, w, 42)) {
+        const float y = 47 + i * 49.7f;
+        if (dragging_category && ImGui::IsMouseHoveringRect(c.p(14, y), c.p(168, y + 42)) &&
+            (static_cast<int>(s.category) != i || ImGui::IsMouseClicked(ImGuiMouseButton_Left))) {
             s.category = static_cast<Category>(i);
             s.page.clear();
+            s.binding = false;
         }
-        ImGui::PushID(categories[i]);
-        const float selection =
-            c.animate("selection", static_cast<int>(s.category) == i ? 1.0f : 0.0f, 0.14f);
-        ImGui::PopID();
-        c.rect(14, y, w, 42, Canvas::blend(IM_COL32(218, 57, 119, 0), pink, selection), 22);
-        auto color = Canvas::blend(muted, IM_COL32(43, 24, 32, 255), selection);
+    }
+    const float selected_y = 47 + static_cast<int>(s.category) * 49.7f;
+    const float selected_width =
+        font_->CalcTextSizeA(20, 1000, 0, categories[static_cast<int>(s.category)]).x + 57;
+    c.rect(14, selected_y, selected_width, 42, pink, 22);
+    for (int i = 0; i < 8; ++i) {
+        const float y = 47 + i * 49.7f;
+        auto color = static_cast<int>(s.category) == i ? IM_COL32(43, 24, 32, 255) : muted;
         c.icon(i, 38, y + 21, color);
-        c.label(62, y + 10, categories[i], 18, color);
+        c.label(62, y + 10, categories[i], 20, color);
     }
     c.rect(17, 505, 150, 38, IM_COL32(24, 24, 24, 255), 8);
     c.outline(17, 505, 150, 38, border, 8);
@@ -435,18 +404,18 @@ void Interface::render(State &s) {
         previous_page_ = s.page;
         previous_category_ = s.category;
     }
-    const float page_alpha = page_fade_.update(1, ImGui::GetIO().DeltaTime, 0.14f);
+    const float page_alpha =
+        page_fade_.update(1, ImGui::GetIO().DeltaTime, layout::page_transition, false, Easing::Smoothstep);
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * page_alpha);
     ImGui::PushID(static_cast<int>(s.category));
     ImGui::PushID(s.page.c_str());
     if (s.page.empty()) {
-        ImGui::SetCursorScreenPos(c.p(210, 60));
-        ImGui::BeginChild("module_list", {540 * scale, 543 * scale}, ImGuiChildFlags_None,
-                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
-        c.smooth_scroll();
+        ImGui::SetCursorScreenPos(c.p(200, 44));
+        ImGui::BeginChild("module_list", {555 * scale, 567 * scale}, ImGuiChildFlags_None,
+                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar);
         c.d = ImGui::GetWindowDrawList();
         c.origin.y -= ImGui::GetScrollY();
-        float y = 66;
+        float y = layout::cards::top;
         for (const auto &entry : entries) {
             if (entry.category != s.category)
                 continue;
@@ -457,24 +426,28 @@ void Interface::render(State &s) {
                            [](unsigned char x) { return static_cast<char>(std::tolower(x)); });
             if (title.find(query) == std::string::npos)
                 continue;
-            c.rect(215, y, 525, 69, IM_COL32(30, 30, 30, 255), 9);
-            c.label(230, y + 13, entry.title, 17);
-            c.label(230, y + 39, entry.description, 11, muted);
-            if (c.hit(entry.title, 215, y, 474, 69))
-                s.page = entry.title;
-            c.glyph(icons::gear, 682, y + 32, 14, muted);
+            using namespace layout::cards;
             ImGui::PushID(entry.title);
             bool &enabled =
                 std::string_view(entry.title) == "Bridge Assist" ? s.enabled : s.modules[entry.title].enabled;
-            c.toggle("module_enabled", 695, y + 22, enabled);
+            c.rect(left, y, width, height, IM_COL32(28, 28, 28, 255), 14);
+            c.label(text_left, y + title_top, entry.title, title_size, enabled ? pink : text);
+            c.label(text_left, y + description_top, entry.description, description_size, muted);
+            if (c.hit("body", left, y, gear_x - 18 - left, height))
+                enabled = !enabled;
+            if (c.hit("settings", gear_x - 16, y + (height - 32) / 2, 32, 32))
+                s.page = entry.title;
+            const auto gear_color = ImGui::IsItemHovered() ? text : muted;
+            c.glyph(icons::gear, gear_x, y + height / 2, gear_size, gear_color);
+            c.toggle("module_enabled", toggle_x, y + (height - 24) / 2, enabled);
             ImGui::PopID();
-            y += 80;
+            y += pitch;
         }
         ImGui::SetCursorScreenPos(c.p(215, y));
         ImGui::Dummy({1, 1});
         ImGui::EndChild();
     } else {
-        c.label(224, 62, s.page.c_str(), 24);
+        c.label(224, 60, s.page.c_str(), 28);
         c.circle(722, 75, 17, IM_COL32(29, 29, 29, 255));
         c.glyph(icons::close, 722, 75, 17, muted);
         if (c.hit("close", 704, 57, 36, 36)) {
@@ -484,13 +457,13 @@ void Interface::render(State &s) {
             ImGui::PopID();
             ImGui::PopStyleVar();
             ImGui::End();
-            ImGui::PopStyleVar(2);
+            ImGui::PopStyleVar();
             return;
         }
         c.line(225, 110, 739, 110, IM_COL32(31, 31, 31, 255), 1);
         bool &enabled = s.page == "Bridge Assist" ? s.enabled : s.modules[s.page].enabled;
         ImGuiKey &bound_key = s.page == "Bridge Assist" ? s.key : s.modules[s.page].key;
-        c.label(225, 135, "Enabled", 15, muted);
+        c.label(225, 135, "Enabled", 17, muted);
         c.toggle("enabled", 695, 131, enabled);
         c.outline(614, 131, 69, 24, border, 12);
         c.glyph(icons::keyboard, 628, 143, 11, muted);
@@ -517,13 +490,13 @@ void Interface::render(State &s) {
             c.label(225, 180, "General", 13, IM_COL32(88, 88, 88, 255));
             c.slider("edge", "Edge offset", 203, s.edge_offset, 1.0f, 0.01f, "%.2f");
             c.slider("delay", "Unsneak delay", 255, s.unsneak_delay, 250, 1, "%.0f ms");
-            c.label(225, 312, "Sneak on jump", 15, muted);
+            c.label(225, 312, "Sneak on jump", 17, muted);
             c.toggle("jump", 695, 308, s.sneak_on_jump);
             c.label(225, 357, "Conditions", 13, IM_COL32(88, 88, 88, 255));
             c.rect(225, 378, 514, 38, IM_COL32(32, 32, 32, 255), 8);
             c.outline(225, 378, 514, 38, IM_COL32(49, 49, 49, 255), 8);
             c.label(238, 388, "Conditions");
-            c.right(698, 388, s.holding_blocks ? "Holding blocks" : "None", 15);
+            c.right(698, 388, s.holding_blocks ? "Holding blocks" : "None", 17);
             c.glyph(icons::chevron, 723, 397, 12, text);
             if (c.hit("conditions", 225, 378, 514, 38))
                 ImGui::OpenPopup("conditions_popup");
@@ -531,19 +504,18 @@ void Interface::render(State &s) {
             ImGui::SetNextWindowSize({514 * scale, 0});
             ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(32, 32, 32, 255));
             ImGui::PushStyleColor(ImGuiCol_Header, pink);
-            if (c.begin_popup("conditions_popup")) {
+            if (ImGui::BeginPopup("conditions_popup")) {
                 if (ImGui::Selectable("Holding blocks", s.holding_blocks,
                                       ImGuiSelectableFlags_DontClosePopups))
                     s.holding_blocks = !s.holding_blocks;
-                c.end_popup();
+                ImGui::EndPopup();
             }
             ImGui::PopStyleColor(2);
         } else {
             ImGui::SetCursorScreenPos(c.p(210, 174));
             ImGui::PushID(s.page.c_str());
             ImGui::BeginChild("module_settings", {540 * scale, 429 * scale}, ImGuiChildFlags_None,
-                              ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollWithMouse);
-            c.smooth_scroll();
+                              ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar);
             c.d = ImGui::GetWindowDrawList();
             c.origin.y -= ImGui::GetScrollY();
             module_settings(c, s.modules[s.page], s.page);
@@ -555,6 +527,6 @@ void Interface::render(State &s) {
     ImGui::PopID();
     ImGui::PopStyleVar();
     ImGui::End();
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar();
 }
 }

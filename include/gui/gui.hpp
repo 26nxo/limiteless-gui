@@ -35,8 +35,6 @@ class Interface {
   private:
     ImFont *font_ = nullptr;
     ImFont *icons_ = nullptr;
-    std::map<ImGuiID, Animation> animations_;
-    Animation entrance_;
     Animation page_fade_;
     std::string previous_page_;
     Category previous_category_ = Category::Player;

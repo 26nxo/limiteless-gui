@@ -97,12 +97,17 @@ int main() {
     click(500, 480);
     click(722, 75);
     require(state.page.empty(), "close button failed");
-    click(350, 170);
+    click(659, 174);
     require(state.page == "Bridge Assist", "module navigation failed");
     require(state.unsneak_delay >= 249 && state.sneak_on_jump, "page navigation lost state");
     click(80, 74);
     require(state.category == gui::Category::Combat && state.page.empty(), "category selection failed");
-    click(350, 95);
+    click(350, 85);
+    require(state.modules["Aim Assist"].enabled && state.page.empty(),
+            "module body should only toggle enabled");
+    click(350, 85);
+    require(!state.modules["Aim Assist"].enabled, "module body did not toggle back off");
+    click(659, 85);
     require(state.page == "Aim Assist", "aim assist navigation failed");
     click(715, 143);
     require(state.modules["Aim Assist"].enabled && !state.enabled, "module states are not isolated");
@@ -116,22 +121,62 @@ int main() {
     for (auto *window : ImGui::GetCurrentContext()->Windows)
         if (window->WasActive && (window->Flags & ImGuiWindowFlags_ChildWindow) && window->Scroll.y > 0)
             scrolled = true;
-    require(scrolled, "animated wheel scrolling failed");
+    require(scrolled, "wheel scrolling failed");
+    io.AddMousePosEvent(80, 123);
+    frame();
+    io.AddMouseButtonEvent(0, true);
+    frame();
+    require(state.category == gui::Category::Player && state.page.empty(),
+            "category did not select on press");
+    io.AddMousePosEvent(80, 173);
+    frame();
+    require(state.category == gui::Category::Move, "held drag did not select move");
+    io.AddMousePosEvent(80, 222);
+    frame();
+    require(state.category == gui::Category::Visuals, "held drag did not select visuals");
+    io.AddMousePosEvent(350, 222);
+    frame();
+    require(state.category == gui::Category::Visuals, "drag outside sidebar changed category");
+    io.AddMousePosEvent(80, 74);
+    frame();
+    require(state.category == gui::Category::Combat, "reverse drag did not return to combat");
+    io.AddMouseButtonEvent(0, false);
+    frame();
+    require(state.page.empty(), "releasing category drag opened a module");
+    click(659, 85);
+    io.AddMousePosEvent(710, 143);
+    frame();
+    io.AddMouseButtonEvent(0, true);
+    frame();
+    io.AddMousePosEvent(80, 222);
+    frame();
+    require(state.category == gui::Category::Combat, "sidebar stole a drag begun on a module control");
+    io.AddMouseButtonEvent(0, false);
+    frame();
     io.DisplaySize = {1158, 938};
     frame();
     require(ImGui::GetDrawData()->TotalVtxCount > 0, "resized renderer produced no geometry");
+    io.AddMousePosEvent(120, 185);
+    frame();
+    io.AddMouseButtonEvent(0, true);
+    frame();
+    io.AddMousePosEvent(120, 333);
+    frame();
+    require(state.category == gui::Category::Visuals, "category drag failed at 150 percent scale");
+    io.AddMouseButtonEvent(0, false);
+    frame();
     io.AddKeyEvent(ImGuiKey_Insert, true);
     frame();
     io.AddKeyEvent(ImGuiKey_Insert, false);
     for (int i = 0; i < 20; ++i)
         frame();
-    require(!state.visible && ImGui::GetDrawData()->TotalVtxCount == 0, "menu did not fade out");
+    require(!state.visible && ImGui::GetDrawData()->TotalVtxCount == 0, "menu did not hide");
     io.AddKeyEvent(ImGuiKey_Insert, true);
     frame();
     io.AddKeyEvent(ImGuiKey_Insert, false);
     for (int i = 0; i < 20; ++i)
         frame();
-    require(state.visible && ImGui::GetDrawData()->TotalVtxCount > 0, "menu did not fade back in");
+    require(state.visible && ImGui::GetDrawData()->TotalVtxCount > 0, "menu did not reappear");
     ImGui::DestroyContext();
     std::cout << "gui interaction checks passed\n";
 }

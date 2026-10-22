@@ -4,9 +4,11 @@
 #include <cmath>
 
 namespace gui {
+enum class Easing { CubicOut, Smoothstep };
 class Animation {
   public:
-    float update(float target, float delta, float duration, bool snap = false) {
+    float update(float target, float delta, float duration, bool snap = false,
+                 Easing easing = Easing::CubicOut) {
         if (!initialized_ || snap) {
             value_ = start_ = target_ = target;
             elapsed_ = duration;
@@ -19,16 +21,14 @@ class Animation {
         }
         elapsed_ += (std::max)(delta, 0.0f);
         const float t = duration > 0 ? std::clamp(elapsed_ / duration, 0.0f, 1.0f) : 1.0f;
-        value_ = start_ + (target_ - start_) * (1 - std::pow(1 - t, 3));
+        const float progress = easing == Easing::Smoothstep ? t * t * (3 - 2 * t) : 1 - std::pow(1 - t, 3);
+        value_ = start_ + (target_ - start_) * progress;
         return value_;
     }
     void reset(float value) {
         value_ = start_ = target_ = value;
         elapsed_ = 0;
         initialized_ = true;
-    }
-    float target() const {
-        return target_;
     }
 
   private:
