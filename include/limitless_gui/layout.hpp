@@ -1,6 +1,6 @@
 #pragma once
 
-namespace limitless::layout {
+namespace limitless_gui::layout {
 namespace cards {
 inline constexpr float left = 204;
 inline constexpr float top = 47;

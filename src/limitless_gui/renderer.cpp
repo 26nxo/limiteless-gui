@@ -3,12 +3,12 @@
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
-#include <limitless/limitless.hpp>
-#include <limitless/icons.hpp>
-#include <limitless/layout.hpp>
+#include <limitless_gui/limitless.hpp>
+#include <limitless_gui/icons.hpp>
+#include <limitless_gui/layout.hpp>
 #include <string_view>
 
-namespace limitless {
+namespace limitless_gui {
 namespace {
 constexpr ImU32 bg = IM_COL32(22, 22, 22, 255), panel = IM_COL32(17, 17, 17, 255);
 constexpr ImU32 text = IM_COL32(197, 197, 197, 255), muted = IM_COL32(111, 111, 111, 255);
@@ -425,7 +425,7 @@ void Interface::render(State &s) {
     Canvas c{ImGui::GetWindowDrawList(), font_, origin, scale, icons_, tweens_, springs_,
              scroll_targets_, scroll_animations_};
     c.rect(1, 3, 770, 622, bg, 18);
-    c.label(695, 6, "limitless", 16, muted);
+    c.label(695, 6, "limitless gui", 16, muted);
     c.d->PushClipRect(c.p(0, 30), c.p(182, 480), true);
     const ImU32 logo = IM_COL32(48, 48, 48, 255);
     c.rect(91, 77, 171, 43, logo, 14);

@@ -3,7 +3,7 @@
 #include <d3d11.h>
 #include <filesystem>
 #include <fstream>
-#include <limitless/limitless.hpp>
+#include <limitless_gui/limitless.hpp>
 #include <shellapi.h>
 #include <string_view>
 #include <vector>
@@ -111,7 +111,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                    LoadCursor(nullptr, IDC_ARROW),
                    nullptr,
                    nullptr,
-                   L"LimitlessPreview",
+                   L"LimitlessGuiPreview",
                    nullptr};
     RegisterClassExW(&wc);
     RECT rect{0, 0, 772, 625};
@@ -141,8 +141,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    limitless::Interface ui;
-    limitless::State state;
+    limitless_gui::Interface ui;
+    limitless_gui::State state;
     std::filesystem::path screenshot;
     int argc = 0;
     LPWSTR *arguments = CommandLineToArgvW(GetCommandLineW(), &argc);
@@ -155,7 +155,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                                                             L"misc",   L"friends", L"configs", L"settings"};
                 for (int i = 0; i < 8; ++i) {
                     if (value == categories[i]) {
-                        state.category = static_cast<limitless::Category>(i);
+                        state.category = static_cast<limitless_gui::Category>(i);
                         state.page.clear();
                         break;
                     }

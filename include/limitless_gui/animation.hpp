@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace limitless {
+namespace limitless_gui {
 enum class Easing { Linear, CubicOut, ExpoOut, Smoothstep };
 
 inline float ease(Easing easing, float t) {

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace limitless::icons {
+namespace limitless_gui::icons {
 inline constexpr const char *bullseye = "\xef\x85\x80";
 inline constexpr const char *street_view = "\xef\x88\x9d";
 inline constexpr const char *running = "\xef\x9c\x8c";
