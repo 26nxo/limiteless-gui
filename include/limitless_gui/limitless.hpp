@@ -12,16 +12,13 @@ struct ModuleState {
     ImGuiKey key = ImGuiKey_None;
     std::map<std::string, float> numbers;
     std::map<std::string, bool> switches;
+    std::map<std::string, int> choices;
+    std::map<std::string, std::string> texts;
 };
 struct State {
     bool visible = true;
     Category category = Category::Player;
-    std::string page = "Bridge Assist";
-    bool enabled = false;
-    bool sneak_on_jump = false;
-    float edge_offset = 0.0f;
-    float unsneak_delay = 150.0f;
-    bool holding_blocks = true;
+    std::string page = "Widget Gallery";
     bool binding = false;
     ImGuiKey key = ImGuiKey_None;
     std::array<char, 128> search{};

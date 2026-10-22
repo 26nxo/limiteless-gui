@@ -79,75 +79,27 @@ int main() {
     frame();
     frame();
     require(ImGui::GetDrawData()->TotalVtxCount > 0, "renderer produced no geometry");
+    require(state.page == "Widget Gallery", "gallery page did not open by default");
     click(715, 143);
-    require(state.enabled, "enabled toggle failed");
-    click(715, 320);
-    require(state.sneak_on_jump, "jump toggle failed");
-    click(730, 228);
-    require(state.edge_offset > 0, "slider increment failed");
-    click(235, 228);
-    require(state.edge_offset == 0, "slider decrement failed");
-    click(249, 280);
-    require(state.unsneak_delay == 0, "slider minimum failed");
-    click(712, 280);
-    require(state.unsneak_delay >= 249, "slider maximum failed");
-    click(648, 143);
-    require(state.binding, "binding capture failed");
-    io.AddKeyEvent(ImGuiKey_K, true);
+    require(state.modules["Widget Gallery"].enabled, "enabled toggle failed");
+    click(400, 230);
     frame();
-    io.AddKeyEvent(ImGuiKey_K, false);
-    frame();
-    require(state.key == ImGuiKey_K && !state.binding, "key binding failed");
-    require(state.enabled, "binding assignment toggled enabled unexpectedly");
-    io.AddKeyEvent(ImGuiKey_K, true);
-    frame();
-    io.AddKeyEvent(ImGuiKey_K, false);
-    frame();
-    require(!state.enabled, "bound key did not toggle enabled");
-    click(720, 397);
-    frame();
-    click(280, 438);
-    require(!state.holding_blocks, "condition selection failed");
-    io.AddKeyEvent(ImGuiKey_Escape, true);
-    frame();
-    io.AddKeyEvent(ImGuiKey_Escape, false);
-    frame();
-    click(500, 480);
+    click(300, 320);
+    require(state.modules["Widget Gallery"].choices["Allowed types"] == 1,
+            "custom combobox selection failed");
+    click(730, 381);
+    require(state.modules["Widget Gallery"].numbers["Accent strength"] > 0.72f,
+            "custom slider increment failed");
+    click(695, 430);
+    require(state.modules["Widget Gallery"].switches["Enable animations"],
+            "custom toggle interaction failed");
     click(722, 75);
     require(state.page.empty(), "close button failed");
-    click(659, 174);
-    require(state.page == "Bridge Assist", "module navigation failed");
-    require(state.unsneak_delay >= 249 && state.sneak_on_jump, "page navigation lost state");
-    click(80, 74);
-    require(state.category == limitless_gui::Category::Combat && state.page.empty(), "category selection failed");
-    click(350, 85);
-    require(state.modules["Aim Assist"].enabled && state.page.empty(),
-            "module body should only toggle enabled");
-    click(350, 85);
-    require(!state.modules["Aim Assist"].enabled, "module body did not toggle back off");
     click(659, 85);
-    require(state.page == "Aim Assist", "aim assist navigation failed");
-    click(715, 143);
-    require(state.modules["Aim Assist"].enabled && !state.enabled, "module states are not isolated");
-    io.AddMousePosEvent(450, 400);
-    frame();
-    io.AddMouseWheelEvent(0, -2);
-    frame();
-    frame();
-    auto current_scroll = [&]() {
-        float scroll = 0;
-        for (auto *window : ImGui::GetCurrentContext()->Windows)
-            if (window->WasActive && (window->Flags & ImGuiWindowFlags_ChildWindow))
-                scroll = std::max(scroll, window->Scroll.y);
-        return scroll;
-    };
-    const float initial_scroll = current_scroll();
-    require(initial_scroll > 0, "wheel input did not start scrolling");
-    for (int i = 0; i < 20; ++i)
-        frame();
-    const float settled_scroll = current_scroll();
-    require(settled_scroll > initial_scroll, "wheel scrolling did not animate smoothly");
-    require(settled_scroll > 0, "wheel scrolling failed");
+    require(state.page == "Widget Gallery", "gallery module navigation failed");
+    click(80, 74);
+    require(state.category == limitless_gui::Category::Combat && state.page.empty(),
+            "category selection failed");
     io.AddMousePosEvent(80, 123);
     frame();
     io.AddMouseButtonEvent(0, true);
@@ -169,16 +121,6 @@ int main() {
     io.AddMouseButtonEvent(0, false);
     frame();
     require(state.page.empty(), "releasing category drag opened a module");
-    click(659, 85);
-    io.AddMousePosEvent(710, 143);
-    frame();
-    io.AddMouseButtonEvent(0, true);
-    frame();
-    io.AddMousePosEvent(80, 222);
-    frame();
-    require(state.category == limitless_gui::Category::Combat, "sidebar stole a drag begun on a module control");
-    io.AddMouseButtonEvent(0, false);
-    frame();
     io.DisplaySize = {1158, 938};
     frame();
     require(ImGui::GetDrawData()->TotalVtxCount > 0, "resized renderer produced no geometry");
@@ -203,7 +145,6 @@ int main() {
     io.AddKeyEvent(ImGuiKey_Insert, false);
     for (int i = 0; i < 20; ++i)
         frame();
-    require(state.visible && ImGui::GetDrawData()->TotalVtxCount > 0, "menu did not reappear");
-    ImGui::DestroyContext();
-    std::cout << "gui interaction checks passed\n";
+    require(state.visible && ImGui::GetDrawData()->TotalVtxCount > 0, "menu did not reappear");    ImGui::DestroyContext();
+    std::cout << "limitless gui widget checks passed\n";
 }

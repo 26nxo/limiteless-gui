@@ -6,7 +6,6 @@
 #include <limitless_gui/limitless.hpp>
 #include <limitless_gui/icons.hpp>
 #include <limitless_gui/layout.hpp>
-#include <string_view>
 
 namespace limitless_gui {
 namespace {
@@ -59,13 +58,13 @@ struct Canvas {
         ImGui::SetScrollY(scroll_animations[key].update(target->second, io.DeltaTime, 0.22f, false,
                                                        Easing::ExpoOut));
     }
-    bool begin_popup(const char *id, float x, float y, float width) {
+    bool begin_popup(const char *id, float x, float y, float width, float height = 0) {
         const bool open = ImGui::IsPopupOpen(id);
         ImGui::PushID(id);
         const float fade = animate("fade", open ? 1.0f : 0.0f, 0.14f, Easing::Smoothstep);
         ImGui::PopID();
         ImGui::SetNextWindowPos(p(x, y + (1.0f - fade) * 6.0f));
-        ImGui::SetNextWindowSize({width * scale, 0});
+        ImGui::SetNextWindowSize({width * scale, height * scale});
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * fade);
         if (ImGui::BeginPopup(id))
             return true;
@@ -75,6 +74,75 @@ struct Canvas {
     void end_popup() {
         ImGui::EndPopup();
         ImGui::PopStyleVar();
+    }
+    bool combo(const char *id, const char *name, float y, int &selected, const char *const *options,
+               int count) {
+        ImGui::PushID(id);
+        selected = std::clamp(selected, 0, count - 1);
+        const bool clicked = hit("field", 225, y, 514, 52);
+        const bool open = ImGui::IsPopupOpen(id);
+        const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
+                                    Easing::Smoothstep);
+        rect(225, y, 514, 52, blend(IM_COL32(26, 26, 26, 255), IM_COL32(31, 31, 31, 255), hover), 7);
+        outline(225, y, 514, 52, open ? IM_COL32(62, 62, 62, 255) : border, 7);
+        label(238, y + 16, name, 17, text);
+        right(642, y + 16, options[selected], 17, text);
+        line(654, y + 10, 654, y + 42, IM_COL32(45, 45, 45, 255), 1);
+        const ImVec2 center = p(678, y + 26);
+        if (open)
+            d->AddTriangleFilled({center.x - 7 * scale, center.y + 4 * scale},
+                                 {center.x + 7 * scale, center.y + 4 * scale},
+                                 {center.x, center.y - 5 * scale}, tint(text));
+        else
+            d->AddTriangleFilled({center.x - 7 * scale, center.y - 4 * scale},
+                                 {center.x + 7 * scale, center.y - 4 * scale},
+                                 {center.x, center.y + 5 * scale}, tint(muted));
+        if (clicked)
+            ImGui::OpenPopup(id);
+        if (begin_popup(id, 225, y + 54, 514, count * 42.0f)) {
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
+            for (int i = 0; i < count; ++i) {
+                ImGui::PushStyleColor(ImGuiCol_Text, i == selected ? pink : text);
+                if (ImGui::Selectable(options[i], i == selected, ImGuiSelectableFlags_DontClosePopups,
+                                      {514 * scale, 42 * scale})) {
+                    selected = i;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::PopStyleColor();
+            }
+            ImGui::PopStyleVar();
+            end_popup();
+        }
+        ImGui::PopID();
+        return clicked;
+    }
+    bool button(const char *id, const char *caption, float x, float y, float width = 160) {
+        ImGui::PushID(id);
+        const bool clicked = hit("button", x, y, width, 38);
+        const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
+                                    Easing::Smoothstep);
+        rect(x, y, width, 38, blend(IM_COL32(34, 34, 34, 255), pink, hover * 0.8f), 7);
+        outline(x, y, width, 38, blend(border, pink, hover), 7);
+        const float text_width = font->CalcTextSizeA(16 * scale, 10000, 0, caption).x / scale;
+        label(x + (width - text_width) / 2, y + 10, caption, 16, hover > 0.5f ? text : muted);
+        ImGui::PopID();
+        return clicked;
+    }
+    void text_input(const char *id, const char *name, float y, std::string &value) {
+        label(225, y, name, 17, muted);
+        ImGui::PushID(id);
+        ImGui::SetCursorScreenPos(p(225, y + 27));
+        ImGui::SetNextItemWidth(514 * scale);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(26, 26, 26, 255));
+        ImGui::PushStyleColor(ImGuiCol_Text, text);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {13 * scale, 10 * scale});
+        std::array<char, 128> buffer{};
+        std::snprintf(buffer.data(), buffer.size(), "%s", value.c_str());
+        if (ImGui::InputText("##value", buffer.data(), buffer.size()))
+            value = buffer.data();
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(2);
+        ImGui::PopID();
     }
     void rect(float x, float y, float w, float h, ImU32 c, float r = 0) {
         d->AddRectFilled(p(x, y), p(x + w, y + h), tint(c), r * scale);
@@ -177,41 +245,10 @@ struct Entry {
     const char *description;
 };
 constexpr Entry entries[] = {
-    {Category::Combat, "Aim Assist", "Aims at players for you"},
-    {Category::Combat, "Auto Clicker", "Clicks while holding LMB"},
-    {Category::Combat, "Auto Block", "Blocks after hitting a player"},
-    {Category::Combat, "Auto Weapon", "Selects your weapon when aiming at a player"},
-    {Category::Combat, "Back Track", "Hit players at their past position"},
-    {Category::Combat, "Jump Reset", "Jumps on hit to reduce knockback"},
-    {Category::Combat, "Reach", ""},
-    {Category::Combat, "Weapons", ""},
-    {Category::Player, "Auto Tool", "Picks the best tool when mining"},
-    {Category::Player, "Bridge Assist", "Sneaks at block edges"},
-    {Category::Player, "Fast Place", "Reduces block placement delay"},
-    {Category::Player, "Chest Stealer", "Loots chests automatically"},
-    {Category::Player, "Auto Pot", "Throws healing potions on keybind"},
-    {Category::Player, "Auto Soup", "Auto-eats soups when low on HP"},
-    {Category::Player, "Refill", ""},
-    {Category::Move, "WTap", "Resets sprint to increase knockback"},
-    {Category::Move, "STap", "Steps back after a hit to increase knockback"},
-    {Category::Move, "Auto Sprint", "Always sprint while moving"},
-    {Category::Move, "Keep Sprint", "Keep your momentum after attacking a player"},
-    {Category::Move, "Fast Stop", "Stop instantly by counter-strafing"},
-    {Category::Move, "No Slow", "No slowdown while using items"},
-    {Category::Move, "No Jump Delay", ""},
-    {Category::Visuals, "Player ESP", ""},
-    {Category::Visuals, "Chest ESP", ""},
-    {Category::Visuals, "Name Tags", ""},
-    {Category::Visuals, "Indicators", ""},
-    {Category::Visuals, "Anti Debuff", "Hides blindness and nausea overlays"},
-    {Category::Visuals, "Free Look", "Pan the camera without rotating your player"},
-    {Category::Visuals, "Array List", "Shows enabled modules on screen"},
-    {Category::Visuals, "Watermark", "Shows client branding on screen"},
-    {Category::Visuals, "Outlines", "Draws outlines around players through walls"},
-    {Category::Visuals, "Trajectories", "Predicts path for bows, pearls and other throwables"}};
+    {Category::Player, "Widget Gallery", "A complete set of custom controls"}};
 }
 namespace {
-void module_settings(Canvas &c, ModuleState &state, const std::string &name) {
+void module_settings(Canvas &c, ModuleState &state, const std::string &) {
     float y = 180;
     auto section = [&](const char *title) {
         c.label(225, y, title, 13, IM_COL32(88, 88, 88, 255));
@@ -228,134 +265,44 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &name) {
         c.slider(label, label, y, it->second, maximum, step, format);
         y += 52;
     };
-    auto choice = [&](const char *label, const char *value) {
-        c.rect(225, y, 514, 38, IM_COL32(26, 26, 26, 255), 7);
-        c.outline(225, y, 514, 38, border, 7);
-        c.label(238, y + 10, label);
-        c.right(699, y + 10, value);
-        c.glyph(icons::chevron, 723, y + 19, 12, muted);
-        if (c.hit(label, 225, y, 514, 38))
-            ImGui::OpenPopup(label);
-        if (c.begin_popup(label, 225, y + 40, 514)) {
-            ImGui::Selectable(value, true);
-            c.end_popup();
-        }
-        y += 52;
+    auto combo = [&](const char *label, const char *const *options, int count, int initial) {
+        auto [it, inserted] = state.choices.try_emplace(label, initial);
+        c.combo(label, label, y, it->second, options, count);
+        y += 64;
     };
-    section("General");
-    if (name == "Aim Assist") {
-        choice("Mode", "Multipoint");
-        slider("Multipoint offset", 0.79f, 1, 0.01f, "%.2f");
-        choice("Targeting", "Single");
-        slider("Lock hold", 500, 2000, 10, "%.0f ms");
-        choice("Filtering", "FOV");
-        slider("Range", 4, 8, 0.1f, "0.0 - %.1f");
-        slider("FOV", 60, 180, 1, "%.0f");
-        toggle("Visualize FOV");
-        toggle("Target line");
-        section("Speed");
-        slider("Horizontal speed", 75, 100, 1, "%.0f");
-        slider("Vertical speed", 0, 100, 1, "%.0f");
-        choice("Conditions", "Only clicking");
-        section("Behaviour");
-        toggle("Through walls");
-        toggle("Aim at invisible");
-    } else if (name == "Auto Clicker") {
-        slider("Max CPS", 21.5f, 30, 0.1f, "%.1f");
-        choice("Conditions", "Allow inventory");
-        section("Behaviour");
-        toggle("Land criticals");
-        toggle("Prevent unrefill", true);
-        toggle("Start burst");
-        toggle("Hit select");
-        toggle("Randomization", true);
-        if (state.switches["Randomization"]) {
-            slider("CPS variation", 2, 10, 0.1f, "%.1f");
-            slider("Drop chance", 4, 20, 1, "%.0f%%");
-            slider("Drop amount", 3, 10, 0.1f, "%.1f CPS");
-            slider("Spike chance", 4, 20, 1, "%.0f%%");
-            slider("Spike amount", 2, 10, 0.1f, "%.1f CPS");
-        }
-    } else if (name == "Chest Stealer") {
-        slider("Steal delay", 28, 200, 1, "20 ms - %.0f ms");
-        choice("Conditions", "Close on steal, Disable on steal");
-    } else if (name == "Weapons") {
-        choice("Allowed types", "Swords");
-        section("Modules");
-        choice("Applies to", "Aim Assist, Auto Clicker");
-    } else if (name == "Free Look") {
-        auto [it, inserted] = state.switches.try_emplace("Third person", false);
-        const char *selected = it->second ? "Third person" : "First person";
-        c.rect(225, y, 514, 38, IM_COL32(26, 26, 26, 255), 7);
-        c.label(238, y + 10, "Switch to");
-        c.right(699, y + 10, selected);
-        if (c.hit("perspective", 225, y, 514, 38))
-            ImGui::OpenPopup("perspective");
-        if (c.begin_popup("perspective", 225, y + 40, 514)) {
-            if (ImGui::Selectable("First person", !it->second))
-                it->second = false;
-            if (ImGui::Selectable("Third person", it->second))
-                it->second = true;
-            c.end_popup();
-        }
-        y += 52;
-    } else if (name == "Indicators") {
-        slider("Arrow FOV", 180, 180, 1, "%.0f");
-        slider("Arrow opacity", 1, 1, 0.01f, "%.2f");
-        toggle("Distance-based color");
-        toggle("Behind only", true);
-        toggle("Invisible players");
-        toggle("Ignore friends", true);
-        toggle("Outline", true);
-        slider("Outline thickness", 1.5f, 5, 0.1f, "%.1f");
-        toggle("Show name");
-        toggle("Show distance");
-    } else if (name == "Name Tags") {
-        toggle("Hide vanilla nametags", true);
-        slider("Range", 70, 250, 1, "%.0f");
-        slider("Scale", 1, 5, 0.1f, "%.1f");
-        toggle("Distance scaling");
-        toggle("Background", true);
-        toggle("Text shadow", true);
-        section("Display");
-        toggle("Show health", true);
-        choice("Health format", "HP");
-    } else if (name == "Player ESP" || name == "Chest ESP") {
-        choice("Mode", "2D");
-        toggle("Box", true);
-        if (name == "Player ESP")
-            choice("Box color mode", "Custom");
-        toggle("Fill");
-        if (name == "Player ESP")
-            toggle("Hurt effect");
-        else {
-            choice("Fill style", "Gradient");
-            toggle("Outline", true);
-        }
-        toggle("Corners", true);
-        slider("Corner size", name == "Player ESP" ? 0.31f : 0.10f, 1, 0.01f, "%.2f");
-        if (name == "Player ESP") {
-            toggle("Health bar", true);
-            choice("Health bar style", "HP-based");
-            choice("Health bar position", "Left");
-            slider("Bar thickness", 1, 5, 1, "%.0f");
-            toggle("Animated", true);
-            slider("Animation speed", 10, 30, 1, "%.0f");
-            toggle("Health number");
-            toggle("Absorption");
-            toggle("Segments");
-            slider("Render distance", 70, 250, 1, "%.0f");
-            slider("Fade distance", 1, 10, 0.1f, "%.1f");
-        } else {
-            section("Ender chests");
-            toggle("Show ender chests", true);
-        }
+    static constexpr const char *types[] = {"Swords", "Axes", "Bows", "Pickaxes"};
+    static constexpr const char *themes[] = {"Dark", "Midnight", "Light"};
+    static constexpr const char *sizes[] = {"Small", "Medium", "Large"};
+    section("Combobox");
+    combo("Allowed types", types, 4, 0);
+    combo("Theme", themes, 3, 0);
+    section("Sliders and toggles");
+    slider("Accent strength", 0.72f, 1.0f, 0.01f, "%.2f");
+    toggle("Enable animations");
+    toggle("Show descriptions", true);
+    combo("Control size", sizes, 3, 1);
+    section("Text and actions");
+    auto [profile, profile_inserted] = state.texts.try_emplace("Profile name", "limitless gui");
+    c.text_input("profile", "Profile name", y, profile->second);
+    y += 72;
+    if (c.button("reset", "Reset values", 225, y, 160)) {
+        state.choices.clear();
+        state.numbers.clear();
+        state.switches.clear();
+        state.texts.clear();
     }
+    c.button("secondary", "Secondary", 397, y, 160);
+    y += 58;
+    section("Custom preview");
+    c.rect(225, y, 514, 38, IM_COL32(26, 26, 26, 255), 7);
+    c.rect(225, y, 514 * 0.68f, 38, pink, 7);
+    c.label(239, y + 10, "Progress indicator", 16, text);
+    c.right(724, y + 10, "68%", 16, text);
+    y += 58;
     ImGui::SetCursorScreenPos(c.p(225, y));
     ImGui::Dummy({1, 1});
 }
-}
-bool Interface::initialize(const char *path, const char *icon_path) {
+}bool Interface::initialize(const char *path, const char *icon_path) {
     if (!path)
         return false;
     const auto icon_file = icon_path ? std::filesystem::path(icon_path)
@@ -538,8 +485,7 @@ void Interface::render(State &s) {
                 continue;
             using namespace layout::cards;
             ImGui::PushID(entry.title);
-            bool &enabled =
-                std::string_view(entry.title) == "Bridge Assist" ? s.enabled : s.modules[entry.title].enabled;
+            bool &enabled = s.modules[entry.title].enabled;
             const bool card_clicked = c.hit("body", left, y, gear_x - 18 - left, height);
             const bool body_hovered = ImGui::IsItemHovered();
             const bool gear_clicked = c.hit("settings", gear_x - 16, y + (height - 32) / 2, 32, 32);
@@ -592,8 +538,8 @@ void Interface::render(State &s) {
             return;
         }
         c.line(225, 110, 739, 110, IM_COL32(31, 31, 31, 255), 1);
-        bool &enabled = s.page == "Bridge Assist" ? s.enabled : s.modules[s.page].enabled;
-        ImGuiKey &bound_key = s.page == "Bridge Assist" ? s.key : s.modules[s.page].key;
+        bool &enabled = s.modules[s.page].enabled;
+        ImGuiKey &bound_key = s.modules[s.page].key;
         c.label(225, 135, "Enabled", 17, muted);
         c.toggle("enabled", 695, 131, enabled);
         c.outline(614, 131, 69, 24, border, 12);
@@ -617,42 +563,17 @@ void Interface::render(State &s) {
         if (s.visible && !was_binding && bound_key != ImGuiKey_None && !ImGui::GetIO().WantTextInput &&
             ImGui::IsKeyPressed(bound_key))
             enabled = !enabled;
-        if (s.page == "Bridge Assist") {
-            c.label(225, 180, "General", 13, IM_COL32(88, 88, 88, 255));
-            c.slider("edge", "Edge offset", 203, s.edge_offset, 1.0f, 0.01f, "%.2f");
-            c.slider("delay", "Unsneak delay", 255, s.unsneak_delay, 250, 1, "%.0f ms");
-            c.label(225, 312, "Sneak on jump", 17, muted);
-            c.toggle("jump", 695, 308, s.sneak_on_jump);
-            c.label(225, 357, "Conditions", 13, IM_COL32(88, 88, 88, 255));
-            c.rect(225, 378, 514, 38, IM_COL32(32, 32, 32, 255), 8);
-            c.outline(225, 378, 514, 38, IM_COL32(49, 49, 49, 255), 8);
-            c.label(238, 388, "Conditions");
-            c.right(698, 388, s.holding_blocks ? "Holding blocks" : "None", 17);
-            c.glyph(icons::chevron, 723, 397, 12, text);
-            if (c.hit("conditions", 225, 378, 514, 38))
-                ImGui::OpenPopup("conditions_popup");
-            ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(32, 32, 32, 255));
-            ImGui::PushStyleColor(ImGuiCol_Header, pink);
-            if (c.begin_popup("conditions_popup", 225, 421, 514)) {
-                if (ImGui::Selectable("Holding blocks", s.holding_blocks,
-                                      ImGuiSelectableFlags_DontClosePopups))
-                    s.holding_blocks = !s.holding_blocks;
-                c.end_popup();
-            }
-            ImGui::PopStyleColor(2);
-        } else {
-            ImGui::SetCursorScreenPos(c.p(210, 174));
-            ImGui::PushID(s.page.c_str());
-            ImGui::BeginChild("module_settings", {540 * scale, 429 * scale}, ImGuiChildFlags_None,
-                              ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar |
-                                  ImGuiWindowFlags_NoScrollWithMouse);
-            c.d = ImGui::GetWindowDrawList();
-            c.smooth_scroll("settings_scroll");
-            c.origin.y -= ImGui::GetScrollY();
-            module_settings(c, s.modules[s.page], s.page);
-            ImGui::EndChild();
-            ImGui::PopID();
-        }
+        ImGui::SetCursorScreenPos(c.p(210, 174));
+        ImGui::PushID(s.page.c_str());
+        ImGui::BeginChild("module_settings", {540 * scale, 429 * scale}, ImGuiChildFlags_None,
+                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar |
+                              ImGuiWindowFlags_NoScrollWithMouse);
+        c.d = ImGui::GetWindowDrawList();
+        c.smooth_scroll("settings_scroll");
+        c.origin.y -= ImGui::GetScrollY();
+        module_settings(c, s.modules[s.page], s.page);
+        ImGui::EndChild();
+        ImGui::PopID();
     }
     ImGui::PopID();
     ImGui::PopID();

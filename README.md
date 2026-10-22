@@ -14,7 +14,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 run `build/Release/limitless_gui.exe`. keep its `assets` folder alongside it.
 
-use `limitless_gui.exe --category combat` to open a module list directly for visual comparison.
+use `limitless_gui.exe --category player` to open the widget module list directly for visual comparison.
 add `--screenshot capture.bmp` to save the rendered frame and exit.
 
 ## module
@@ -23,16 +23,16 @@ add `--screenshot capture.bmp` to save the rendered frame and exit.
 
 set `-DLIMITLESS_GUI_BUILD_PREVIEW=OFF` to build just the portable library and interaction checks. link the `limitless_gui_core` target from a host with its own imgui backend.
 
-the default bridge assist page follows the supplied 772 × 625 image. click or drag sliders, use plus/minus, toggle switches, select conditions, or click the key binding and press a key (escape clears it). close the page to browse categories; search filters the visible category. hold the left mouse button in the sidebar and drag across categories to switch. click a module card to toggle it; click its gear to open settings.
+the default widget gallery follows the supplied 772 × 625 image. it contains custom comboboxes, sliders, toggles, text inputs, buttons, progress indicators, and key binding controls. close the page to browse categories; search filters the visible category. hold the left mouse button in the sidebar and drag across categories to switch.
 
 press insert to show or hide the preview; the menu fades out and stops accepting input while closing. category changes use a spring selector with color crossfades, a 160 ms content fade, and a short directional slide. switches and slider fills ease toward their values, hover states transition smoothly, wheel scrolling eases toward its target, and popups fade and lift into place. dragging the category selector and dragging a slider remain immediate.
 
-card measurements come from the updated showcase at 16.1 seconds, normalized to 772 × 625: 546 × 76 cards, 89-pixel row pitch, 18-pixel titles, 15-pixel descriptions, 19-pixel gears, and separate settings hitboxes. layout constants are in `include/limitless_gui/layout.hpp`. sidebar rows begin at 47 pixels with a 49.7-pixel pitch.
+card measurements come from the reference showcase, normalized to 772 × 625: 546 × 76 cards, 89-pixel row pitch, 18-pixel titles, 15-pixel descriptions, 19-pixel gears, and separate settings hitboxes. layout constants are in `include/limitless_gui/layout.hpp`. sidebar rows begin at 47 pixels with a 49.7-pixel pitch.
 
 font awesome free 6.7.2 solid supplies sidebar and control icons. keep `fa-solid-900.ttf` beside the text font, or pass its path as the second argument to `initialize`.
 
 ## fidelity
 
-bridge assist is the primary reference page. video-observed controls for aim assist, auto clicker, chest stealer, weapons, free look, indicators, name tags, and esp are also included. unobserved settings and categories are incomplete; dropdowns on secondary pages only show their observed selection. the text font, avatar, background mark, and animation curves are approximations because source assets were not supplied. this is not a verified pixel-identical reconstruction of every video screen.
+the widget gallery is the primary reference page. comboboxes use a dark expanded panel, stacked options, a pink selected option, a separator, and a directional chevron. the text font, avatar, background mark, and animation curves are approximations because source assets were not supplied.
 
 dear imgui v1.91.9b is vendored under its mit license. preview sans and font awesome fonts are bundled under their open font licenses in `assets/fonts`.
