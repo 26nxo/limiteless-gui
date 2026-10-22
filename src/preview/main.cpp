@@ -3,7 +3,7 @@
 #include <d3d11.h>
 #include <filesystem>
 #include <fstream>
-#include <gui/gui.hpp>
+#include <limitless/limitless.hpp>
 #include <shellapi.h>
 #include <string_view>
 #include <vector>
@@ -111,13 +111,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                    LoadCursor(nullptr, IDC_ARROW),
                    nullptr,
                    nullptr,
-                   L"TimewarpPreview",
+                   L"LimitlessPreview",
                    nullptr};
     RegisterClassExW(&wc);
     RECT rect{0, 0, 772, 625};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
     HWND window =
-        CreateWindowW(wc.lpszClassName, L"timewarp - standalone preview", WS_OVERLAPPEDWINDOW, 100, 100,
+        CreateWindowW(wc.lpszClassName, L"limitless - standalone preview", WS_OVERLAPPEDWINDOW, 100, 100,
                       rect.right - rect.left, rect.bottom - rect.top, nullptr, nullptr, instance, nullptr);
     DXGI_SWAP_CHAIN_DESC desc{};
     desc.BufferCount = 2;
@@ -141,8 +141,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    gui::Interface ui;
-    gui::State state;
+    limitless::Interface ui;
+    limitless::State state;
     std::filesystem::path screenshot;
     int argc = 0;
     LPWSTR *arguments = CommandLineToArgvW(GetCommandLineW(), &argc);
@@ -155,7 +155,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                                                             L"misc",   L"friends", L"configs", L"settings"};
                 for (int i = 0; i < 8; ++i) {
                     if (value == categories[i]) {
-                        state.category = static_cast<gui::Category>(i);
+                        state.category = static_cast<limitless::Category>(i);
                         state.page.clear();
                         break;
                     }

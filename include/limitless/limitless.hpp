@@ -1,11 +1,11 @@
 #pragma once
 #include <array>
-#include <gui/animation.hpp>
+#include <limitless/animation.hpp>
 #include <imgui.h>
 #include <map>
 #include <string>
 
-namespace gui {
+namespace limitless {
 enum class Category { Combat, Player, Move, Visuals, Misc, Friends, Configs, Settings };
 struct ModuleState {
     bool enabled = false;
