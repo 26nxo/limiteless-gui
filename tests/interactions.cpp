@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <gui/gui.hpp>
 #include <imgui_internal.h>
@@ -29,6 +31,22 @@ int main() {
     for (int i = 0; i < 12; ++i)
         fast = high_fps.update(1, 1.0f / 120, 0.18f);
     require(std::abs(slow - fast) < 0.0001f, "animation timing depends on frame rate");
+    require(gui::ease(gui::Easing::ExpoOut, 1) == 1, "expo easing does not reach its endpoint");
+    require(gui::ease(gui::Easing::ExpoOut, 0) == 0, "expo easing does not start at zero");
+    gui::Spring low_rate, high_rate;
+    low_rate.reset(0);
+    high_rate.reset(0);
+    for (int i = 0; i < 18; ++i)
+        slow = low_rate.update(1, 1.0f / 60);
+    for (int i = 0; i < 72; ++i)
+        fast = high_rate.update(1, 1.0f / 240);
+    require(std::abs(slow - fast) < 0.001f, "spring timing depends on frame rate");
+    for (int i = 0; i < 30; ++i)
+        slow = low_rate.update(1, 1.0f / 60);
+    require(std::abs(slow - 1) < 0.001f, "spring did not settle");
+    low_rate.reset(0);
+    const float overshoot = low_rate.update(1, 1.0f / 12);
+    require(overshoot > 0 && overshoot < 1.2f, "spring overshot too far");
     ImGui::CreateContext();
     gui::Interface ui;
     gui::State state;
@@ -115,13 +133,21 @@ int main() {
     frame();
     io.AddMouseWheelEvent(0, -2);
     frame();
+    frame();
+    auto current_scroll = [&]() {
+        float scroll = 0;
+        for (auto *window : ImGui::GetCurrentContext()->Windows)
+            if (window->WasActive && (window->Flags & ImGuiWindowFlags_ChildWindow))
+                scroll = std::max(scroll, window->Scroll.y);
+        return scroll;
+    };
+    const float initial_scroll = current_scroll();
+    require(initial_scroll > 0, "wheel input did not start scrolling");
     for (int i = 0; i < 20; ++i)
         frame();
-    bool scrolled = false;
-    for (auto *window : ImGui::GetCurrentContext()->Windows)
-        if (window->WasActive && (window->Flags & ImGuiWindowFlags_ChildWindow) && window->Scroll.y > 0)
-            scrolled = true;
-    require(scrolled, "wheel scrolling failed");
+    const float settled_scroll = current_scroll();
+    require(settled_scroll > initial_scroll, "wheel scrolling did not animate smoothly");
+    require(settled_scroll > 0, "wheel scrolling failed");
     io.AddMousePosEvent(80, 123);
     frame();
     io.AddMouseButtonEvent(0, true);
@@ -168,6 +194,7 @@ int main() {
     io.AddKeyEvent(ImGuiKey_Insert, true);
     frame();
     io.AddKeyEvent(ImGuiKey_Insert, false);
+    require(!state.visible && ImGui::GetDrawData()->TotalVtxCount > 0, "menu did not fade out");
     for (int i = 0; i < 20; ++i)
         frame();
     require(!state.visible && ImGui::GetDrawData()->TotalVtxCount == 0, "menu did not hide");

@@ -25,7 +25,7 @@ set `-DGUI_BUILD_PREVIEW=OFF` to build just the portable library and interaction
 
 the default bridge assist page follows the supplied 772 × 625 image. click or drag sliders, use plus/minus, toggle switches, select conditions, or click the key binding and press a key (escape clears it). close the page to browse categories; search filters the visible category. hold the left mouse button in the sidebar and drag across categories to switch. click a module card to toggle it; click its gear to open settings.
 
-press insert to show or hide the preview. category content fades back in over 100 ms, matching the transition visible in the 30 fps footage. the category pill jumps directly between rows; switches, sliders, popups and wheel scrolling are immediate. frame-by-frame inspection showed no sliding selector or animated switch travel, so those effects were removed.
+press insert to show or hide the preview; the menu fades out and stops accepting input while closing. category changes use a spring selector with color crossfades, a 160 ms content fade, and a short directional slide. switches and slider fills ease toward their values, hover states transition smoothly, wheel scrolling eases toward its target, and popups fade and lift into place. dragging the category selector and dragging a slider remain immediate.
 
 card measurements come from the updated showcase at 16.1 seconds, normalized to 772 × 625: 546 × 76 cards, 89-pixel row pitch, 18-pixel titles, 15-pixel descriptions, 19-pixel gears, and separate settings hitboxes. layout constants are in `include/gui/layout.hpp`. sidebar rows begin at 47 pixels with a 49.7-pixel pitch. category movement was checked frame by frame around 17.7 seconds.
 

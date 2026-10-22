@@ -16,5 +16,5 @@ inline constexpr float gear_x = 659;
 inline constexpr float gear_size = 19;
 inline constexpr float toggle_x = 686;
 }
-inline constexpr float page_transition = 0.10f;
+inline constexpr float page_transition = 0.16f;
 }

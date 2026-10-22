@@ -35,8 +35,17 @@ class Interface {
   private:
     ImFont *font_ = nullptr;
     ImFont *icons_ = nullptr;
-    Animation page_fade_;
+    std::map<ImGuiID, Animation> tweens_;
+    std::map<ImGuiID, Spring> springs_;
+    std::map<ImGuiID, float> scroll_targets_;
+    std::map<ImGuiID, Animation> scroll_animations_;
+    Animation entrance_;
+    Animation content_fade_;
+    Animation content_slide_;
+    Spring category_y_;
+    Spring category_width_;
     std::string previous_page_;
     Category previous_category_ = Category::Player;
+    bool content_initialized_ = false;
 };
 }
