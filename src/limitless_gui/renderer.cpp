@@ -165,8 +165,8 @@ struct Canvas {
         const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
         rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
         rect(249 + 464 * first, y + 20, 464 * (second - first), 10, pink, 5);
-        circle(249 + 464 * first, y + 25, 5, IM_COL32(53, 24, 36, 255));
-        circle(249 + 464 * second, y + 25, 5, IM_COL32(53, 24, 36, 255));
+        circle(249 + 464 * first - 4, y + 25, 3, IM_COL32(53, 24, 36, 255));
+        circle(249 + 464 * second - 4, y + 25, 3, IM_COL32(53, 24, 36, 255));
         char values[48];
         std::snprintf(values, sizeof(values), "%.0f - %.0f", range[0], range[1]);
         right(739, y + 29, values, 13, muted);
@@ -181,62 +181,44 @@ struct Canvas {
         outline(695, y, 44, 24, open ? pink : border, 12);
         if (clicked)
             ImGui::OpenPopup(id);
-        if (begin_popup(id, 430, y + 30, 320, 222)) {
+        if (begin_popup(id, 430, y + 30, 320, 166)) {
             ImDrawList *child_draw_list = d;
-            float hue, saturation, value;
-            ImGui::ColorConvertRGBtoHSV(color[0], color[1], color[2], hue, saturation, value);
             ImDrawList *popup = ImGui::GetWindowDrawList();
             d = popup;
             const float left = 442;
-            const float top = y + 44;
-            constexpr float square_size = 166;
-            const ImVec2 square_min = p(left, top);
-            const ImVec2 square_max = p(left + square_size, top + square_size);
-            float hue_r, hue_g, hue_b;
-            ImGui::ColorConvertHSVtoRGB(hue, 1, 1, hue_r, hue_g, hue_b);
-            const ImU32 hue_color = tint(ImGui::ColorConvertFloat4ToU32({hue_r, hue_g, hue_b, 1}));
-            popup->AddRectFilledMultiColor(square_min, square_max, tint(IM_COL32(255, 255, 255, 255)), hue_color,
-                                           hue_color, tint(IM_COL32(255, 255, 255, 255)));
-            popup->AddRectFilledMultiColor(square_min, square_max, tint(IM_COL32(0, 0, 0, 0)),
-                                           tint(IM_COL32(0, 0, 0, 0)), tint(IM_COL32(0, 0, 0, 255)),
-                                           tint(IM_COL32(0, 0, 0, 255)));
-            popup->AddRect(square_min, square_max, tint(border), 4 * scale);
-            ImGui::SetCursorScreenPos(square_min);
-            ImGui::InvisibleButton("saturation_value", {square_size * scale, square_size * scale});
-            if (ImGui::IsItemActive()) {
-                saturation = std::clamp((ImGui::GetIO().MousePos.x - square_min.x) / (square_size * scale), 0.0f, 1.0f);
-                value = std::clamp(1.0f - (ImGui::GetIO().MousePos.y - square_min.y) / (square_size * scale), 0.0f, 1.0f);
-            }
-            const ImVec2 point = {square_min.x + saturation * square_size * scale,
-                                  square_min.y + (1.0f - value) * square_size * scale};
-            popup->AddCircle(point, 5 * scale, tint(IM_COL32(235, 235, 235, 255)), 12, 1.5f * scale);
-            const float hue_x = left + 180;
-            for (int i = 0; i < 6; ++i) {
-                float r0, g0, b0, r1, g1, b1;
-                ImGui::ColorConvertHSVtoRGB(i / 6.0f, 1, 1, r0, g0, b0);
-                ImGui::ColorConvertHSVtoRGB((i + 1) / 6.0f, 1, 1, r1, g1, b1);
-                popup->AddRectFilledMultiColor(p(hue_x, top + i * square_size / 6.0f),
-                                               p(hue_x + 16, top + (i + 1) * square_size / 6.0f),
-                                               tint(ImGui::ColorConvertFloat4ToU32({r0, g0, b0, 1})),
-                                               tint(ImGui::ColorConvertFloat4ToU32({r0, g0, b0, 1})),
-                                               tint(ImGui::ColorConvertFloat4ToU32({r1, g1, b1, 1})),
-                                               tint(ImGui::ColorConvertFloat4ToU32({r1, g1, b1, 1})));
-            }
-            ImGui::SetCursorScreenPos(p(hue_x, top));
-            ImGui::InvisibleButton("hue", {16 * scale, square_size * scale});
-            if (ImGui::IsItemActive())
-                hue = std::clamp((ImGui::GetIO().MousePos.y - p(hue_x, top).y) / (square_size * scale), 0.0f, 1.0f);
-            popup->AddRect(p(hue_x - 2, top + hue * square_size - 2), p(hue_x + 18, top + hue * square_size + 2),
-                           tint(IM_COL32(235, 235, 235, 255)), 2 * scale);
-            ImGui::ColorConvertHSVtoRGB(hue, saturation, value, color[0], color[1], color[2]);
-            rect(left + 212, top, 52, 52, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 8);
-            outline(left + 212, top, 52, 52, border, 8);
-            label(left + 212, top + 66, "Custom", 14, text);
-            char rgb[48];
-            std::snprintf(rgb, sizeof(rgb), "%03d  %03d  %03d", static_cast<int>(color[0] * 255),
+            const float top = y + 42;
+            rect(left, top, 42, 42, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 8);
+            outline(left, top, 42, 42, border, 8);
+            label(left + 54, top + 2, "Accent color", 16, text);
+            char hex[12];
+            std::snprintf(hex, sizeof(hex), "#%02X%02X%02X", static_cast<int>(color[0] * 255),
                           static_cast<int>(color[1] * 255), static_cast<int>(color[2] * 255));
-            label(left + 212, top + 90, "RGB", 12, muted);
-            label(left + 212, top + 110, rgb, 13, text);
+            label(left + 54, top + 23, hex, 13, muted);
+            auto channel = [&](const char *name, int index, float row) {
+                std::array<float, 4> start = color, end = color;
+                start[index] = 0;
+                end[index] = 1;
+                label(left, row - 4, name, 13, muted);
+                popup->AddRectFilledMultiColor(p(left + 20, row), p(left + 202, row + 10),
+                                               tint(ImGui::ColorConvertFloat4ToU32(
+                                                   {start[0], start[1], start[2], 1})),
+                                               tint(ImGui::ColorConvertFloat4ToU32({end[0], end[1], end[2], 1})),
+                                               tint(ImGui::ColorConvertFloat4ToU32({end[0], end[1], end[2], 1})),
+                                               tint(ImGui::ColorConvertFloat4ToU32(
+                                                   {start[0], start[1], start[2], 1})));
+                ImGui::SetCursorScreenPos(p(left + 20, row - 5));
+                ImGui::InvisibleButton(name, {182 * scale, 20 * scale});
+                if (ImGui::IsItemActive())
+                    color[index] = std::clamp((ImGui::GetIO().MousePos.x - p(left + 20, row).x) / (182 * scale),
+                                              0.0f, 1.0f);
+                circle(left + 20 + color[index] * 182 - 4, row + 5, 3, IM_COL32(53, 24, 36, 255));
+                char value[5];
+                std::snprintf(value, sizeof(value), "%03d", static_cast<int>(color[index] * 255));
+                right(left + 262, row - 4, value, 13, text);
+            };
+            channel("R", 0, top + 62);
+            channel("G", 1, top + 88);
+            channel("B", 2, top + 114);
             d = child_draw_list;
             end_popup();
         }
