@@ -186,13 +186,25 @@ struct Canvas {
                        bool &expanded) {
         ImGui::PushID(id);
         label(225, y + 5, caption);
+        auto swatch = [&](float x, float top, float size, float radius) {
+            const float half = size / 2;
+            const ImDrawFlags corners[] = {ImDrawFlags_RoundCornersTopLeft, ImDrawFlags_RoundCornersTopRight,
+                                           ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersBottomRight};
+            for (int i = 0; i < 4; ++i) {
+                const float left = x + (i % 2) * half, row = top + (i / 2) * half;
+                d->AddRectFilled(p(left, row), p(left + half, row + half),
+                                 tint(i == 0 || i == 3 ? IM_COL32(95, 95, 95, 255) : IM_COL32(155, 155, 155, 255)),
+                                 radius * scale, corners[i]);
+            }
+            rect(x, top, size, size, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], color[3]}), radius);
+        };
         const bool clicked = hit("swatch", 715, y, 24, 24);
         const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
         if (clicked)
             ImGui::OpenPopup("color_editor");
         expanded = ImGui::IsPopupOpen("color_editor");
-        rect(715, y, 24, 24, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 5);
+        swatch(715, y, 24, 5);
         outline(715, y, 24, 24, blend(border, pink, expanded ? 1.0f : hover * 0.5f), 5);
         if (!expanded) {
             ImGui::PopID();
@@ -220,6 +232,8 @@ struct Canvas {
             constexpr float pi = 3.14159265358979323846f;
             auto round_corners = [&](float x, float y, float w, float h, float r) {
                 const ImU32 background = tint(IM_COL32(18, 18, 18, 255));
+                const ImDrawListFlags flags = d->Flags;
+                d->Flags &= ~ImDrawListFlags_AntiAliasedFill;
                 auto corner = [&](float cx, float cy, float center_x, float center_y, float from,
                                   float to) {
                     constexpr int steps = 10;
@@ -228,8 +242,7 @@ struct Canvas {
                         const float angle = from + (to - from) * step / steps;
                         const ImVec2 next = {center_x + std::cos(angle) * r,
                                              center_y + std::sin(angle) * r};
-                        d->AddTriangleFilled(p(cx, cy), p(previous.x, previous.y),
-                                             p(next.x, next.y), background);
+                        d->AddTriangleFilled(p(cx, cy), p(previous.x, previous.y), p(next.x, next.y), background);
                         previous = next;
                     }
                 };
@@ -237,9 +250,9 @@ struct Canvas {
                 corner(x + w, y, x + w - r, y + r, 0, -pi / 2);
                 corner(x + w, y + h, x + w - r, y + h - r, pi / 2, 0);
                 corner(x, y + h, x + r, y + h - r, pi, pi / 2);
+                d->Flags = flags;
             };
-            const ImU32 current = ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1});
-            rect(16, 16, 26, 26, current, 8);
+            swatch(16, 16, 26, 8);
             outline(16, 16, 26, 26, IM_COL32(58, 58, 58, 255), 8);
             label(52, 18, caption, 14, text);
             char value[16];
@@ -258,7 +271,7 @@ struct Canvas {
                 ImGui::ColorConvertHSVtoRGB(h, 1, 1, r, g, b);
                 return ImGui::ColorConvertFloat4ToU32({r, g, b, 1});
             };
-            constexpr float field_x = 16, field_y = 58, field_w = 240, field_h = 140;
+            constexpr float field_x = 16, field_y = 58, field_w = 210, field_h = 140;
             d->AddRectFilledMultiColor(p(field_x, field_y), p(field_x + field_w, field_y + field_h),
                                        tint(IM_COL32(255, 255, 255, 255)),
                                        tint(hue_color(hue)), tint(hue_color(hue)),
@@ -275,7 +288,6 @@ struct Canvas {
                 brightness =
                     std::clamp(1.0f - (mouse.y - p(field_x, field_y).y) / (field_h * scale), 0.0f, 1.0f);
                 ImGui::ColorConvertHSVtoRGB(hue, saturation, brightness, color[0], color[1], color[2]);
-                color[3] = 1;
             }
             const float cursor_x = field_x + saturation * field_w;
             const float cursor_y = field_y + (1 - brightness) * field_h;
@@ -298,11 +310,28 @@ struct Canvas {
                                  0.0f, 1.0f);
                 saved_hue = hue;
                 ImGui::ColorConvertHSVtoRGB(hue, saturation, brightness, color[0], color[1], color[2]);
-                color[3] = 1;
             }
             const float hue_cursor = hue_x + hue * hue_w;
             rect(hue_cursor - 3, hue_y - 4, 6, 20, IM_COL32(0, 0, 0, 120), 3);
             rect(hue_cursor - 2, hue_y - 3, 4, 18, IM_COL32(255, 255, 255, 255), 2);
+            for (int row = 0; row < 20; ++row)
+                for (int col = 0; col < 2; ++col)
+                    rect(242 + col * 7, 58 + row * 7, 7, 7,
+                         (row + col) % 2 ? IM_COL32(95, 95, 95, 255) : IM_COL32(155, 155, 155, 255));
+            const ImU32 opaque = tint(ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}));
+            const ImU32 transparent = opaque & ~IM_COL32_A_MASK;
+            d->AddRectFilledMultiColor(p(242, 58), p(256, 198), opaque, opaque, transparent, transparent);
+            round_corners(242, 58, 14, 140, 7);
+            hit("opacity", 238, 58, 22, 140);
+            if (ImGui::IsItemActive())
+                color[3] = std::clamp(1.0f - (ImGui::GetIO().MousePos.y - p(242, 58).y) / (140 * scale),
+                                      0.0f, 1.0f);
+            const float alpha_y = 58 + (1 - color[3]) * 140;
+            rect(239, alpha_y - 3, 20, 6, IM_COL32(0, 0, 0, 170), 3);
+            rect(240, alpha_y - 2, 18, 4, IM_COL32(255, 255, 255, 255), 2);
+            char opacity[24];
+            std::snprintf(opacity, sizeof(opacity), "Opacity %.0f%%", color[3] * 100);
+            right(256, 244, opacity, 10, muted);
             label(16, 244, "HEX", 10, muted);
             const ImGuiID hex_id = ImGui::GetID("hex");
             auto &hex = hex_buffers[hex_id];
@@ -312,7 +341,7 @@ struct Canvas {
                               static_cast<int>(color[1] * 255 + 0.5f),
                               static_cast<int>(color[2] * 255 + 0.5f));
             ImGui::SetCursorScreenPos(p(16, 260));
-            ImGui::SetNextItemWidth(140 * scale);
+            ImGui::SetNextItemWidth(240 * scale);
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8 * scale);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {10 * scale, 7 * scale});
             ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(25, 25, 25, 255));
@@ -328,7 +357,6 @@ struct Canvas {
                     color[0] = ((rgb >> 16) & 255) / 255.0f;
                     color[1] = ((rgb >> 8) & 255) / 255.0f;
                     color[2] = (rgb & 255) / 255.0f;
-                    color[3] = 1;
                     float h, s, v;
                     ImGui::ColorConvertRGBtoHSV(color[0], color[1], color[2], h, s, v);
                     if (s > 0.001f)
@@ -337,18 +365,6 @@ struct Canvas {
             }
             ImGui::PopStyleColor(5);
             ImGui::PopStyleVar(2);
-            ImGui::PushID("done");
-            const bool done_clicked = hit("button", 172, 260, 84, 30);
-            const float done_hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.10f,
-                                             Easing::Smoothstep);
-            rect(172, 260, 84, 30, blend(IM_COL32(27, 27, 27, 255), IM_COL32(36, 36, 36, 255), done_hover),
-                 8);
-            outline(172, 260, 84, 30, blend(IM_COL32(44, 44, 44, 255), pink, done_hover * 0.5f), 8);
-            const float done_width = font->CalcTextSizeA(13, 1000, 0, "Done").x / scale;
-            label(172 + (84 - done_width) / 2, 268, "Done", 13, done_hover > 0.05f ? text : muted);
-            if (done_clicked)
-                ImGui::CloseCurrentPopup();
-            ImGui::PopID();
             d = draw_backup;
             origin = origin_backup;
             ImGui::EndPopup();

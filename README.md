@@ -33,6 +33,6 @@ font awesome free 6.7.2 solid supplies sidebar and control icons. keep `fa-solid
 
 ## fidelity
 
-the widget gallery is the primary reference page. comboboxes use a dark expanded panel, stacked options, a pink selected option, a separator, and a directional chevron. the color picker opens a compact floating editor with a rounded saturation field, hue strip, hex input, and a done button. the text font, avatar, background mark, and animation curves are approximations because source assets were not supplied.
+the widget gallery is the primary reference page. comboboxes use a dark expanded panel, stacked options, a pink selected option, a separator, and a directional chevron. the color picker opens a compact floating editor with a rounded saturation field, hue strip, vertical opacity slider, and hex input. click outside to close it. the text font, avatar, background mark, and animation curves are approximations because source assets were not supplied.
 
 dear imgui v1.91.9b is vendored under its mit license. preview sans and font awesome fonts are bundled under their open font licenses in `assets/fonts`.

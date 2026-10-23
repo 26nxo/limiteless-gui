@@ -118,7 +118,14 @@ int main() {
                 std::abs(edited_color[1] - previous_color[1]) > 0.01f ||
                 std::abs(edited_color[2] - previous_color[2]) > 0.01f,
             "color field did not update the accent color");
-    click(680, 582);
+    click(716, 435);
+    const float alpha = state.modules["Widget Gallery"].colors["Accent color"][3];
+    require(alpha > 0.05f && alpha < 0.95f, "opacity slider did not update transparency");
+    click(600, 430);
+    click(600, 527);
+    require(std::abs(state.modules["Widget Gallery"].colors["Accent color"][3] - alpha) < 0.001f,
+            "color editing reset transparency");
+    click(400, 350);
     frame();
     require(!state.modules["Widget Gallery"].switches["Accent color open"],
             "color picker did not close");
