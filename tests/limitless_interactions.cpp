@@ -203,6 +203,12 @@ int main() {
     click(80, 74);
     require(state.category == limitless_gui::Category::Combat && state.page.empty(),
             "leaving configs did not restore the combat list");
+    click(80, 416);
+    require(state.category == limitless_gui::Category::Settings && state.page == "Settings",
+            "settings category did not open its settings directly");
+    click(80, 74);
+    require(state.category == limitless_gui::Category::Combat && state.page.empty(),
+            "leaving settings did not restore the combat list");
     io.DisplaySize = {1158, 938};
     frame();
     require(ImGui::GetDrawData()->TotalVtxCount > 0, "resized renderer produced no geometry");

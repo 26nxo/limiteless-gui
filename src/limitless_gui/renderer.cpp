@@ -587,12 +587,12 @@ constexpr Entry entries[] = {
     {Category::Visuals, "Array List", "Displays enabled modules"},
     {Category::Misc, "Weapons", "Filter which items count as weapons"},
     {Category::Friends, "Friends", "Manage your friends"},
-    {Category::Settings, "Settings", "Customize your interface"},
     {Category::Player, "Widget Gallery", "A complete set of custom controls"}};
 }
 namespace {
 void module_settings(Canvas &c, ModuleState &state, const std::string &page) {
-    float y = page == "Configs" ? 135.0f : 180.0f;
+    const bool direct_page = page == "Configs" || page == "Settings";
+    float y = direct_page ? 135.0f : 180.0f;
     auto section = [&](const char *title) {
         c.label(225, y, title, 13, IM_COL32(88, 88, 88, 255));
         y += 24;
@@ -949,8 +949,8 @@ void Interface::render(State &s) {
             s.binding = false;
         }
     }
-    if (s.category == Category::Configs) {
-        s.page = "Configs";
+    if (s.category == Category::Configs || s.category == Category::Settings) {
+        s.page = s.category == Category::Configs ? "Configs" : "Settings";
         s.binding = false;
     }
     const float selected_y = 47 + static_cast<int>(s.category) * 49.7f;
@@ -1071,15 +1071,15 @@ void Interface::render(State &s) {
         ImGui::SetCursorScreenPos(c.p(215, y));
         ImGui::Dummy({1, 1});
         ImGui::EndChild();
-    } else if (s.page == "Configs") {
-        c.label(224, 62, "Configs", 22);
+    } else if (s.page == "Configs" || s.page == "Settings") {
+        c.label(224, 62, s.page.c_str(), 22);
         c.line(225, 110, 739, 110, IM_COL32(31, 31, 31, 255), 1);
         ImGui::SetCursorScreenPos(c.p(210, 124));
-        ImGui::BeginChild("config_catalog", {540 * scale, 479 * scale}, ImGuiChildFlags_None,
+        ImGui::BeginChild("direct_page", {540 * scale, 479 * scale}, ImGuiChildFlags_None,
                           ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar |
                               ImGuiWindowFlags_NoScrollWithMouse);
         c.d = ImGui::GetWindowDrawList();
-        c.smooth_scroll("config_scroll");
+        c.smooth_scroll("direct_scroll");
         c.origin.y -= ImGui::GetScrollY();
         module_settings(c, s.modules[s.page], s.page);
         ImGui::EndChild();
