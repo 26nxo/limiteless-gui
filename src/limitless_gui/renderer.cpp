@@ -803,18 +803,16 @@ void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
     int remove = -1;
     for (int i = 0; i < static_cast<int>(configs.entries.size()); ++i) {
         auto &entry = configs.entries[static_cast<size_t>(i)];
-        c.rect(225, y, 514, 30, blend(panel, text, 0.025f), 6);
-        c.d->PushClipRect(c.p(233, y), c.p(518, y + 30), true);
-        c.label(233, y + 7, entry.name.c_str(), 15, text);
+        c.rect(225, y, 514, 34, blend(panel, text, 0.025f), 6);
+        c.d->PushClipRect(c.p(233, y), c.p(587, y + 34), true);
+        c.label(233, y + 9, entry.name.c_str(), 15, text);
         c.d->PopClipRect();
         const auto index = std::to_string(i);
-        if (c.button(("load_" + index).c_str(), "Load", 531, y, 62))
+        if (c.button(("load_" + index).c_str(), "Load", 595, y + 3, 68))
             load_settings(settings, entry.settings);
-        if (c.button(("save_" + index).c_str(), "Save", 601, y, 62))
-            entry.settings = snapshot_settings(settings);
-        if (c.button(("delete_" + index).c_str(), "Delete", 671, y, 68))
+        if (c.button(("delete_" + index).c_str(), "Delete", 671, y + 3, 68))
             remove = i;
-        y += 38;
+        y += 42;
     }
     if (remove >= 0)
         configs.entries.erase(configs.entries.begin() + remove);

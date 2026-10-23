@@ -166,14 +166,12 @@ int main() {
             "config creation failed");
     require(state.configs.name.empty(), "config name was not cleared");
     state.settings.theme = 0;
-    click(562, 309);
+    click(629, 312);
     require(state.settings.theme == 1, "config load failed");
     state.settings.theme = 2;
-    click(632, 309);
-    state.settings.theme = 0;
-    click(562, 309);
-    require(state.settings.theme == 2, "config save failed");
-    click(705, 309);
+    click(629, 312);
+    require(state.settings.theme == 1, "saved config was modified without loading");
+    click(705, 312);
     require(state.configs.entries.empty(), "config deletion failed");
 
     click(80, 416);
