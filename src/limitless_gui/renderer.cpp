@@ -9,6 +9,7 @@
 #include <limitless_gui/icons.hpp>
 #include <limitless_gui/layout.hpp>
 #include <sstream>
+#include <vector>
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -255,26 +256,12 @@ struct Canvas {
         const ImU32 icon_color = accent ? accent : muted;
         const ImU32 hover_start = accent ? accent : pink;
         const ImU32 hover_end = accent ? blend(accent, text, 0.12f) : pink_second;
+        constexpr float corner = 3.0f;
         const float hold_mix = hold_progress * 0.18f;
         gradient_rect(x, y, width, 28, blend(blend(base, hover_start, hover * 0.8f), hover_start, hold_mix),
-                      blend(blend(base, hover_end, hover * 0.8f), hover_end, hold_mix), 6);
-        if (hold_progress > 0.01f) {
-            const ImVec2 center = p(x + width / 2, y + 14);
-            const float radius = 10.5f * scale;
-            const float thickness = 2.0f * scale;
-            d->AddCircle(center, radius, tint(blend(border, hover_start, 0.35f)), 0, thickness);
-            constexpr float pi = 3.1415926535f;
-            const float start = -pi / 2;
-            const float end = start + pi * 2 * hold_progress;
-            d->PathArcTo(center, radius, start, end, 32);
-            d->PathStroke(tint(hover_start), 0, thickness);
-            if (hold_progress < 0.97f) {
-                const ImVec2 tip(center.x + std::cos(end) * radius,
-                                 center.y + std::sin(end) * radius);
-                d->AddCircleFilled(tip, thickness * 0.7f, tint(blend(hover_start, text, 0.5f)), 0);
-            }
-        }
-        outline(x, y, width, 28, blend(border, hover_start, hover + hold_progress * 0.9f), 6);
+                      blend(blend(base, hover_end, hover * 0.8f), hover_end, hold_mix), corner);
+        outline(x, y, width, 28, blend(border, hover_start, hover + hold_progress * 0.35f), corner);
+        outline_progress(x, y, width, 28, corner, hold_progress, hover_start);
         glyph(icon, x + width / 2, y + 14, 15,
               blend(icon_color, text, std::max(hover * 0.3f, hold_progress * 0.6f)));
         if (hovered)
@@ -636,6 +623,72 @@ struct Canvas {
     }
     void outline(float x, float y, float w, float h, ImU32 c, float r = 0) {
         d->AddRect(p(x, y), p(x + w, y + h), tint(c), r * scale, 0, scale);
+    }
+    void outline_progress(float x, float y, float w, float h, float r, float progress, ImU32 c,
+                          float thickness = 2.0f) {
+        if (progress <= 0.0f || w <= 0.0f || h <= 0.0f)
+            return;
+        std::vector<ImVec2> points;
+        points.reserve(128);
+        const auto add_line = [&](float x0, float y0, float x1, float y1) {
+            const ImVec2 a = p(x0, y0), b = p(x1, y1);
+            const float length = std::hypot(b.x - a.x, b.y - a.y);
+            const int steps = std::max(1, static_cast<int>(std::ceil(length / (2.0f * scale))));
+            for (int i = 1; i <= steps; ++i) {
+                const float t = static_cast<float>(i) / static_cast<float>(steps);
+                points.push_back({a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t});
+            }
+        };
+        const auto add_arc = [&](float cx, float cy, float first, float last) {
+            const ImVec2 center = p(cx, cy);
+            for (int i = 1; i <= 6; ++i) {
+                const float angle = first + (last - first) * static_cast<float>(i) / 6.0f;
+                points.push_back({center.x + std::cos(angle) * r * scale,
+                                  center.y + std::sin(angle) * r * scale});
+            }
+        };
+        constexpr float pi = 3.1415926535f;
+        points.push_back(p(x + w / 2, y));
+        add_line(x + w / 2, y, x + w - r, y);
+        add_arc(x + w - r, y + r, -pi / 2, 0);
+        add_line(x + w, y + r, x + w, y + h - r);
+        add_arc(x + w - r, y + h - r, 0, pi / 2);
+        add_line(x + w - r, y + h, x + r, y + h);
+        add_arc(x + r, y + h - r, pi / 2, pi);
+        add_line(x, y + h - r, x, y + r);
+        add_arc(x + r, y + r, pi, 1.5f * pi);
+        add_line(x + r, y, x + w / 2, y);
+        if (points.size() < 2)
+            return;
+        if (progress >= 0.999f) {
+            d->AddPolyline(points.data(), static_cast<int>(points.size()), tint(c),
+                           ImDrawFlags_Closed, thickness * scale);
+            return;
+        }
+        float total = 0.0f;
+        for (size_t i = 1; i < points.size(); ++i)
+            total += std::hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+        const float target = total * std::clamp(progress, 0.0f, 1.0f);
+        std::vector<ImVec2> path;
+        path.reserve(points.size());
+        path.push_back(points.front());
+        float passed = 0.0f;
+        for (size_t i = 1; i < points.size(); ++i) {
+            const float segment =
+                std::hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+            if (segment > 0.0f && passed + segment >= target) {
+                const float t = (target - passed) / segment;
+                path.push_back({points[i - 1].x + (points[i].x - points[i - 1].x) * t,
+                                points[i - 1].y + (points[i].y - points[i - 1].y) * t});
+                break;
+            }
+            path.push_back(points[i]);
+            passed += segment;
+        }
+        if (path.size() < 2)
+            return;
+        d->AddPolyline(path.data(), static_cast<int>(path.size()), tint(c), 0, thickness * scale);
+        d->AddCircleFilled(path.back(), thickness * 0.55f * scale, tint(blend(c, text, 0.5f)), 0);
     }
     void line(float x, float y, float xx, float yy, ImU32 c, float width = 2) {
         d->AddLine(p(x, y), p(xx, yy), tint(c), width * scale);
