@@ -124,7 +124,7 @@ int main() {
     click(717, 351);
     require(state.settings.show_profile, "profile toggle did not restore");
 
-    click(650, 438);
+    click(700, 438);
     require(state.settings.binding_key, "menu key binding did not start");
     io.AddKeyEvent(ImGuiKey_F1, true);
     frame();

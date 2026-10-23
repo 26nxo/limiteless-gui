@@ -616,7 +616,16 @@ struct Canvas {
     void keybind(const char *id, const char *caption, float y, ImGuiKey &key, bool &binding) {
         ImGui::PushID(id);
         label(225, y + 5, caption, 17, text);
-        const bool clicked = hit("field", 559, y, 180, 30);
+        const auto fit = [&](const char *text) {
+            return std::clamp(font->CalcTextSizeA(14, 10000, 0, text).x + 36.0f, 58.0f, 180.0f);
+        };
+        const auto key_name = [&]() {
+            const char *name = ImGui::GetKeyName(key);
+            return name ? name : "Unbound";
+        };
+        const char *before = binding ? "Press a key..." : key_name();
+        const float before_width = fit(before);
+        const bool clicked = hit("field", 739 - before_width, y, before_width, 30);
         if (clicked)
             binding = !binding;
         else if (binding && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
@@ -639,14 +648,14 @@ struct Canvas {
         }
         const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
+        const char *value = binding ? "Press a key..." : key_name();
+        const float width = fit(value);
+        const float x = 739 - width;
         const ImU32 field = blend(panel, text, 0.04f);
-        rect(559, y, 180, 30, field, 7);
-        outline(559, y, 180, 30, blend(border, pink, binding ? 1.0f : hover * 0.5f), 7);
-        const char *value = binding ? "Press a key..." : ImGui::GetKeyName(key);
-        if (!value)
-            value = "Unbound";
-        const auto width = font->CalcTextSizeA(14, 10000, 0, value).x;
-        label(559 + (180 - width) / 2, y + 7, value, 14, binding ? pink : text);
+        rect(x, y, width, 30, field, 7);
+        outline(x, y, width, 30, blend(border, pink, binding ? 1.0f : hover * 0.5f), 7);
+        const auto text_width = font->CalcTextSizeA(14, 10000, 0, value).x;
+        label(x + (width - text_width) / 2, y + 7, value, 14, binding ? pink : text);
         ImGui::PopID();
     }
     void avatar(ImTextureID texture, float x, float y, float size) {
