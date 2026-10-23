@@ -88,7 +88,7 @@ int main() {
     require(state.modules["Widget Gallery"].enabled, "enabled toggle failed");
     click(400, 230);
     frame();
-    click(300, 320);
+    click(300, 292);
     require(state.modules["Widget Gallery"].choices["Allowed types"] == 1,
             "custom combobox selection failed");
     click(730, 381);

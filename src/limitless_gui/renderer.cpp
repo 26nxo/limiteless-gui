@@ -11,7 +11,7 @@ namespace limitless_gui {
 namespace {
 constexpr ImU32 bg = IM_COL32(22, 22, 22, 255), panel = IM_COL32(17, 17, 17, 255);
 constexpr ImU32 text = IM_COL32(197, 197, 197, 255), muted = IM_COL32(111, 111, 111, 255);
-constexpr ImU32 pink = IM_COL32(218, 57, 119, 255), border = IM_COL32(40, 40, 40, 255);
+constexpr ImU32 pink = IM_COL32(235, 65, 119, 255), border = IM_COL32(40, 40, 40, 255);
 ImU32 blend(ImU32 first, ImU32 second, float t) {
     const ImVec4 a = ImGui::ColorConvertU32ToFloat4(first);
     const ImVec4 b = ImGui::ColorConvertU32ToFloat4(second);
@@ -80,32 +80,28 @@ struct Canvas {
                int count) {
         ImGui::PushID(id);
         selected = std::clamp(selected, 0, count - 1);
-        const bool clicked = hit("field", 225, y, 514, 52);
+        const bool clicked = hit("field", 225, y, 514, 38);
         const bool open = ImGui::IsPopupOpen(id);
         const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
-        rect(225, y, 514, 52, blend(IM_COL32(26, 26, 26, 255), IM_COL32(31, 31, 31, 255), hover), 7);
-        outline(225, y, 514, 52, open ? IM_COL32(62, 62, 62, 255) : border, 7);
-        label(238, y + 16, name, 17, text);
-        right(642, y + 16, options[selected], 17, text);
-        line(654, y + 10, 654, y + 42, IM_COL32(45, 45, 45, 255), 1);
-        const ImVec2 center = p(678, y + 26);
-        if (open)
-            d->AddTriangleFilled({center.x - 7 * scale, center.y + 4 * scale},
-                                 {center.x + 7 * scale, center.y + 4 * scale},
-                                 {center.x, center.y - 5 * scale}, tint(text));
-        else
-            d->AddTriangleFilled({center.x - 7 * scale, center.y - 4 * scale},
-                                 {center.x + 7 * scale, center.y - 4 * scale},
-                                 {center.x, center.y + 5 * scale}, tint(muted));
+        rect(225, y, 514, 38, blend(IM_COL32(22, 22, 22, 255), IM_COL32(27, 27, 27, 255), hover), 6);
+        outline(225, y, 514, 38, border, 6);
+        label(238, y + 11, name, 15, text);
+        right(699, y + 11, options[selected], 15, text);
+        line(707, y + 8, 707, y + 30, border, 1);
+        const float direction = open ? -1.0f : 1.0f;
+        line(718, y + 19 - direction * 3, 723, y + 19 + direction * 3, muted, 1.5f);
+        line(723, y + 19 + direction * 3, 728, y + 19 - direction * 3, muted, 1.5f);
         if (clicked)
             ImGui::OpenPopup(id);
-        if (begin_popup(id, 225, y + 54, 514, count * 42.0f)) {
+        ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(16, 16, 16, 255));
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(16, 16, 16, 255));
+        if (begin_popup(id, 225, y + 40, 514, count * 30.0f + 16)) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
             for (int i = 0; i < count; ++i) {
                 ImGui::PushStyleColor(ImGuiCol_Text, i == selected ? pink : text);
                 if (ImGui::Selectable(options[i], i == selected, ImGuiSelectableFlags_DontClosePopups,
-                                      {514 * scale, 42 * scale})) {
+                                      {490 * scale, 26 * scale})) {
                     selected = i;
                     ImGui::CloseCurrentPopup();
                 }
@@ -114,6 +110,7 @@ struct Canvas {
             ImGui::PopStyleVar();
             end_popup();
         }
+        ImGui::PopStyleColor(2);
         ImGui::PopID();
         return clicked;
     }
@@ -152,38 +149,32 @@ struct Canvas {
         ImGui::PushID(id);
         label(225, y, caption);
         right(739, y, "range", 13, muted);
-        const float first = std::clamp(range[0] / maximum, 0.0f, 1.0f);
-        const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
         hit("track", 249, y + 17, 464, 20);
         const ImGuiID range_id = ImGui::GetItemID();
         const bool track_active = ImGui::IsItemActive();
         const bool track_activated = ImGui::IsItemActivated();
-        hit("lower_thumb", 249 + first * 464 - 10, y + 15, 20, 24);
-        const bool lower_active = ImGui::IsItemActive();
-        hit("upper_thumb", 249 + second * 464 - 10, y + 15, 20, 24);
-        const bool upper_active = ImGui::IsItemActive();
         if (track_activated) {
             const float mouse_value = std::clamp(
                 ((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464.0f * maximum, 0.0f, maximum);
             range_handles[range_id] = std::abs(mouse_value - range[0]) < std::abs(mouse_value - range[1]) ? 0 : 1;
         }
-        if (lower_active || upper_active || track_active) {
+        if (track_active) {
             const float ratio = std::clamp(((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464.0f,
                                            0.0f, 1.0f);
             const float value = ratio * maximum;
-            const int index = lower_active ? 0 : upper_active ? 1 : range_handles[range_id];
+            const int index = range_handles[range_id];
             range[index] = std::clamp(value, 0.0f, maximum);
             if (index == 0)
                 range[0] = std::min(range[0], range[1]);
             else
                 range[1] = std::max(range[0], range[1]);
         }
-        if (!track_active && !lower_active && !upper_active)
+        if (!track_active)
             range_handles.erase(range_id);
+        const float first = std::clamp(range[0] / maximum, 0.0f, 1.0f);
+        const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
         rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
         rect(249 + 464 * first, y + 20, 464 * (second - first), 10, pink, 5);
-        circle(249 + 464 * first - 4, y + 25, 3, IM_COL32(53, 24, 36, 255));
-        circle(249 + 464 * second - 4, y + 25, 3, IM_COL32(53, 24, 36, 255));
         char values[48];
         std::snprintf(values, sizeof(values), "%.0f - %.0f", range[0], range[1]);
         right(739, y + 29, values, 13, muted);
@@ -192,21 +183,39 @@ struct Canvas {
     float color_picker(const char *id, const char *caption, float y, std::array<float, 4> &color, bool &expanded) {
         ImGui::PushID(id);
         label(225, y + 5, caption);
-        const bool clicked = hit("swatch", 695, y, 44, 24);
+        const bool clicked = hit("swatch", 715, y, 24, 24);
         const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
         if (clicked)
             expanded = !expanded;
-        rect(695, y, 44, 24, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 12);
-        outline(695, y, 44, 24, blend(border, pink, expanded ? 1.0f : hover * 0.5f), 12);
+        rect(715, y, 24, 24, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 5);
+        outline(715, y, 24, 24, blend(border, pink, expanded ? 1.0f : hover * 0.5f), 5);
         if (!expanded) {
             ImGui::PopID();
             return 36;
         }
         const float top = y + 36;
-        rect(225, top, 514, 76, IM_COL32(23, 23, 23, 255), 8);
-        outline(225, top, 514, 76, border, 8);
-        label(239, top + 12, "Choose a color", 14, muted);
+        rect(225, top, 514, 108, IM_COL32(18, 18, 18, 255), 6);
+        outline(225, top, 514, 108, border, 6);
+        label(239, top + 12, "Color", 14, muted);
+        char hex[7];
+        std::snprintf(hex, sizeof(hex), "%02X%02X%02X", static_cast<int>(color[0] * 255 + 0.5f),
+                      static_cast<int>(color[1] * 255 + 0.5f), static_cast<int>(color[2] * 255 + 0.5f));
+        label(605, top + 13, "#", 14, muted);
+        ImGui::SetCursorScreenPos(p(621, top + 8));
+        ImGui::SetNextItemWidth(102 * scale);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(25, 25, 25, 255));
+        if (ImGui::InputText("##hex", hex, sizeof(hex), ImGuiInputTextFlags_CharsHexadecimal |
+                             ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue)) {
+            unsigned int rgb;
+            if (std::char_traits<char>::length(hex) == 6 && std::sscanf(hex, "%x", &rgb) == 1) {
+                color[0] = ((rgb >> 16) & 255) / 255.0f;
+                color[1] = ((rgb >> 8) & 255) / 255.0f;
+                color[2] = (rgb & 255) / 255.0f;
+            }
+        }
+        ImGui::PopStyleColor();
+        label(239, top + 80, "HEX: enter six digits and press Enter", 12, muted);
         constexpr ImU32 palette[] = {IM_COL32(218, 57, 119, 255), IM_COL32(213, 80, 80, 255),
                                      IM_COL32(224, 148, 59, 255), IM_COL32(190, 190, 73, 255),
                                      IM_COL32(78, 179, 111, 255), IM_COL32(73, 158, 207, 255),
@@ -228,7 +237,7 @@ struct Canvas {
             ImGui::PopID();
         }
         ImGui::PopID();
-        return 124;
+        return 156;
     }
     void multi_combo(const char *id, const char *caption, float y, std::vector<bool> &selected,
                      const char *const *options, int count) {
@@ -243,36 +252,35 @@ struct Canvas {
             }
         if (summary.empty())
             summary = "None";
-        const bool clicked = hit("field", 225, y, 514, 52);
+        const bool clicked = hit("field", 225, y, 514, 38);
         const bool open = ImGui::IsPopupOpen(id);
-        rect(225, y, 514, 52, IM_COL32(26, 26, 26, 255), 7);
-        outline(225, y, 514, 52, open ? IM_COL32(62, 62, 62, 255) : border, 7);
-        label(238, y + 16, caption, 17, text);
-        right(642, y + 16, summary.c_str(), 15, text);
-        line(654, y + 10, 654, y + 42, IM_COL32(45, 45, 45, 255), 1);
-        const ImVec2 center = p(678, y + 26);
-        if (open)
-            d->AddTriangleFilled({center.x - 7 * scale, center.y + 4 * scale},
-                                 {center.x + 7 * scale, center.y + 4 * scale},
-                                 {center.x, center.y - 5 * scale}, tint(text));
-        else
-            d->AddTriangleFilled({center.x - 7 * scale, center.y - 4 * scale},
-                                 {center.x + 7 * scale, center.y - 4 * scale},
-                                 {center.x, center.y + 5 * scale}, tint(muted));
+        rect(225, y, 514, 38, IM_COL32(22, 22, 22, 255), 6);
+        outline(225, y, 514, 38, border, 6);
+        label(238, y + 11, caption, 15, text);
+        d->PushClipRect(p(405, y), p(700, y + 38), true);
+        right(699, y + 11, summary.c_str(), 15, text);
+        d->PopClipRect();
+        line(707, y + 8, 707, y + 30, border, 1);
+        const float direction = open ? -1.0f : 1.0f;
+        line(718, y + 19 - direction * 3, 723, y + 19 + direction * 3, muted, 1.5f);
+        line(723, y + 19 + direction * 3, 728, y + 19 - direction * 3, muted, 1.5f);
         if (clicked)
             ImGui::OpenPopup(id);
-        if (begin_popup(id, 225, y + 54, 514, count * 42.0f)) {
+        ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(16, 16, 16, 255));
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(16, 16, 16, 255));
+        if (begin_popup(id, 225, y + 40, 514, count * 30.0f + 16)) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
             for (int i = 0; i < count; ++i) {
                 ImGui::PushStyleColor(ImGuiCol_Text, selected[i] ? pink : text);
                 if (ImGui::Selectable(options[i], selected[i], ImGuiSelectableFlags_DontClosePopups,
-                                      {514 * scale, 42 * scale}))
+                                      {490 * scale, 26 * scale}))
                     selected[i] = !selected[i];
                 ImGui::PopStyleColor();
             }
             ImGui::PopStyleVar();
             end_popup();
         }
+        ImGui::PopStyleColor(2);
         ImGui::PopID();
     }
     void text_input(const char *id, const char *name, float y, std::string &value) {
@@ -364,14 +372,11 @@ struct Canvas {
                                     Easing::Smoothstep);
         const float height = animate("height", active ? 12.0f : hovered ? 11.0f : 10.0f, 0.12f,
                                      Easing::Smoothstep);
-        const float thumb = animate("thumb", active ? 4.2f : hovered ? 3.5f : 3.0f, 0.10f,
-                                    Easing::Smoothstep);
         rect(249, y + 25 - height / 2, 464, height,
              blend(IM_COL32(22, 22, 22, 255), IM_COL32(26, 26, 26, 255), hover), height / 2);
         if (display > 0.0005f) {
             const float w = 464 * display;
             rect(249, y + 25 - height / 2, w, height, pink, height / 2);
-            circle(249 + w - 4, y + 25, thumb, IM_COL32(53, 24, 36, 255));
         }
         ImGui::PopID();
     }
