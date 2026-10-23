@@ -83,7 +83,7 @@ struct Canvas {
     bool combo_option(const char *caption, bool selected) {
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const bool clicked = ImGui::InvisibleButton(caption, {486 * scale, 24 * scale});
-        const ImU32 color = ImGui::IsItemHovered() ? IM_COL32(255, 255, 255, 255) : selected ? pink : muted;
+        const ImU32 color = selected ? pink : ImGui::IsItemHovered() ? IM_COL32(255, 255, 255, 255) : muted;
         ImGui::GetWindowDrawList()->AddText(regular, 14 * scale, {pos.x, pos.y + 5 * scale}, tint(color), caption);
         return clicked;
     }
