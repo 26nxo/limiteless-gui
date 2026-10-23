@@ -63,7 +63,8 @@ int main() {
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
     require(io.Fonts->Fonts.Size == 3, "preview fonts were not loaded");
-    for (ImWchar glyph : {0xf140, 0xf21d, 0xf70c, 0xf06e, 0xf121, 0xf234, 0xf0c2, 0xf1de, 0xf067, 0xf068})
+    for (ImWchar glyph : {0xf140, 0xf21d, 0xf70c, 0xf06e, 0xf121, 0xf234,
+                          0xf0c2, 0xf1de, 0xf067, 0xf068, 0xf07c, 0xf1f8})
         require(io.Fonts->Fonts[1]->FindGlyphNoFallback(glyph) != nullptr, "font awesome glyph is missing");
     auto frame = [&]() {
         ImGui::NewFrame();
@@ -166,12 +167,12 @@ int main() {
             "config creation failed");
     require(state.configs.name.empty(), "config name was not cleared");
     state.settings.theme = 0;
-    click(629, 312);
+    click(665, 312);
     require(state.settings.theme == 1, "config load failed");
     state.settings.theme = 2;
-    click(629, 312);
+    click(665, 312);
     require(state.settings.theme == 1, "saved config was modified without loading");
-    click(705, 312);
+    click(717, 312);
     require(state.configs.entries.empty(), "config deletion failed");
 
     click(80, 416);

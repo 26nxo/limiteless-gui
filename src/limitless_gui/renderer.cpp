@@ -205,6 +205,23 @@ struct Canvas {
         ImGui::PopID();
         return clicked;
     }
+    bool icon_button(const char *id, const char *icon, const char *tooltip, float x, float y,
+                     float width = 44) {
+        ImGui::PushID(id);
+        const bool clicked = hit("button", x, y, width, 28);
+        const bool hovered = ImGui::IsItemHovered();
+        const float hover = animate("hover", hovered ? 1.0f : 0.0f, 0.12f, Easing::Smoothstep);
+        const ImU32 base = blend(panel, text, 0.08f);
+        gradient_rect(x, y, width, 28, blend(base, pink, hover * 0.8f),
+                      blend(base, pink_second, hover * 0.8f), 6);
+        outline(x, y, width, 28, blend(border, pink, hover), 6);
+        glyph(icon, x + width / 2, y + 14, 13, hover > 0.5f ? blend(pink, IM_COL32(0, 0, 0, 255), 0.8f)
+                                                              : muted);
+        if (hovered)
+            ImGui::SetTooltip("%s", tooltip);
+        ImGui::PopID();
+        return clicked;
+    }
     bool checkbox(const char *id, const char *caption, float x, float y, bool &value) {
         ImGui::PushID(id);
         const bool clicked = hit("box", x, y, 22, 22);
@@ -804,13 +821,13 @@ void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
     for (int i = 0; i < static_cast<int>(configs.entries.size()); ++i) {
         auto &entry = configs.entries[static_cast<size_t>(i)];
         c.rect(225, y, 514, 34, blend(panel, text, 0.025f), 6);
-        c.d->PushClipRect(c.p(233, y), c.p(587, y + 34), true);
+        c.d->PushClipRect(c.p(233, y), c.p(635, y + 34), true);
         c.label(233, y + 9, entry.name.c_str(), 15, text);
         c.d->PopClipRect();
         const auto index = std::to_string(i);
-        if (c.button(("load_" + index).c_str(), "Load", 595, y + 3, 68))
+        if (c.icon_button(("load_" + index).c_str(), icons::folder_open, "Load", 643, y + 3))
             load_settings(settings, entry.settings);
-        if (c.button(("delete_" + index).c_str(), "Delete", 671, y + 3, 68))
+        if (c.icon_button(("delete_" + index).c_str(), icons::trash, "Delete", 695, y + 3))
             remove = i;
         y += 42;
     }
