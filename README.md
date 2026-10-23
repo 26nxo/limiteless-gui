@@ -16,13 +16,13 @@ run `build/Release/limitless_gui.exe` with its `assets` folder alongside it.
 
 ## preview
 
-the menu opens on the combat module list. click a gear to open settings, click a switch to toggle it, and drag through sidebar categories to navigate. configs and settings are direct pages: selecting either opens its controls instead of a one-item module list. press insert to fade the menu in or out. double-click slider values to edit them.
+the sidebar has two direct pages: settings and configs. select either one to see its controls, edit config names, and create or remove saved entries. press insert to fade the menu in or out.
 
-use `--category player` to select a category, `--page "Aim Assist"` to inspect settings, or `--page "Widget Gallery"` for the control gallery. add `--screenshot capture.bmp` to save a settled frame and exit.
+use `--category settings` or `--category configs` to choose the opening page. add `--screenshot capture.bmp` to save a settled frame and exit.
 
 ## references
 
-the updated video in `references/` supplies the module layout, labels, sidebar icons, footer, and settings controls. earlier videos provide additional interaction examples. fonts, animation timing, and details obscured by video compression are approximations; this is not a verified pixel-exact reproduction. module switches and values are local preview state, with no game integration.
+the updated video in `references/` supplies the palette, typography, sidebar, footer, and control styling. modules were removed on request, leaving only settings and configs, so the menu is not a pixel-exact reproduction of the reference.
 
 ## embedding
 

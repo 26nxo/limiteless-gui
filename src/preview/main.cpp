@@ -151,22 +151,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
             const std::wstring_view option(arguments[arg]);
             if (option == L"--category") {
                 const std::wstring_view value(arguments[++arg]);
-                constexpr std::wstring_view categories[] = {L"combat", L"player",  L"move",    L"visuals",
-                                                            L"misc",   L"friends", L"configs", L"settings"};
-                for (int i = 0; i < 8; ++i) {
+                constexpr std::wstring_view categories[] = {L"settings", L"configs"};
+                for (int i = 0; i < 2; ++i) {
                     if (value == categories[i]) {
                         state.category = static_cast<limitless_gui::Category>(i);
-                        state.page.clear();
                         break;
                     }
                 }
-            } else if (option == L"--page") {
-                const std::wstring value(arguments[++arg]);
-                const int length = WideCharToMultiByte(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
-                                                       nullptr, 0, nullptr, nullptr);
-                state.page.resize(length);
-                WideCharToMultiByte(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
-                                    state.page.data(), length, nullptr, nullptr);
             } else if (option == L"--screenshot") {
                 screenshot = arguments[++arg];
             }
