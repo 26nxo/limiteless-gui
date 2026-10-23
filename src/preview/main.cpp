@@ -160,6 +160,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                         break;
                     }
                 }
+            } else if (option == L"--page") {
+                const std::wstring value(arguments[++arg]);
+                const int length = WideCharToMultiByte(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
+                                                       nullptr, 0, nullptr, nullptr);
+                state.page.resize(length);
+                WideCharToMultiByte(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
+                                    state.page.data(), length, nullptr, nullptr);
             } else if (option == L"--screenshot") {
                 screenshot = arguments[++arg];
             }

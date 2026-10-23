@@ -21,8 +21,8 @@ struct ModuleState {
 };
 struct State {
     bool visible = true;
-    Category category = Category::Player;
-    std::string page = "Widget Gallery";
+    Category category = Category::Combat;
+    std::string page;
     bool binding = false;
     ImGuiKey key = ImGuiKey_None;
     std::array<char, 128> search{};

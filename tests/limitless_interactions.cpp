@@ -50,6 +50,10 @@ int main() {
     ImGui::CreateContext();
     limitless_gui::Interface ui;
     limitless_gui::State state;
+    require(state.category == limitless_gui::Category::Combat && state.page.empty(),
+            "reference module list did not open by default");
+    state.category = limitless_gui::Category::Player;
+    state.page = "Widget Gallery";
     require(ui.initialize(LIMITLESS_GUI_TEST_FONT), "font initialization failed");
     auto &io = ImGui::GetIO();
     io.DisplaySize = {772, 625};
@@ -154,7 +158,7 @@ int main() {
     click(722, 75);
     require(state.page.empty(), "close button failed");
     click(659, 85);
-    require(state.page == "Widget Gallery", "gallery module navigation failed");
+    require(state.page == "Fast Use", "player module navigation failed");
     click(80, 74);
     require(state.category == limitless_gui::Category::Combat && state.page.empty(),
             "category selection failed");
@@ -179,6 +183,20 @@ int main() {
     io.AddMouseButtonEvent(0, false);
     frame();
     require(state.page.empty(), "releasing category drag opened a module");
+    click(659, 85);
+    require(state.page == "Aim Assist", "combat settings navigation failed");
+    frame();
+    require(state.modules["Aim Assist"].ranges.contains("Range"), "aim range was not initialized");
+    click(715, 143);
+    require(state.modules["Aim Assist"].enabled, "aim enabled toggle failed");
+    for (const char *page : {"Auto Clicker", "Weapons", "Chest Stealer", "Player ESP", "Chest ESP",
+                             "Name Tags", "Trajectories", "Indicators", "Array List", "Piercing",
+                             "Friends", "Configs", "Settings"}) {
+        state.page = page;
+        frame();
+        frame();
+    }
+    state.page.clear();
     io.DisplaySize = {1158, 938};
     frame();
     require(ImGui::GetDrawData()->TotalVtxCount > 0, "resized renderer produced no geometry");

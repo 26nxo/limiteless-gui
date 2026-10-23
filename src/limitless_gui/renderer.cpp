@@ -11,7 +11,7 @@ namespace limitless_gui {
 namespace {
 constexpr ImU32 bg = IM_COL32(22, 22, 22, 255), panel = IM_COL32(17, 17, 17, 255);
 constexpr ImU32 text = IM_COL32(197, 197, 197, 255), muted = IM_COL32(111, 111, 111, 255);
-constexpr ImU32 pink = IM_COL32(235, 65, 119, 255), border = IM_COL32(40, 40, 40, 255);
+constexpr ImU32 pink = IM_COL32(222, 73, 119, 255), border = IM_COL32(40, 40, 40, 255);
 ImU32 blend(ImU32 first, ImU32 second, float t) {
     const ImVec4 a = ImGui::ColorConvertU32ToFloat4(first);
     const ImVec4 b = ImGui::ColorConvertU32ToFloat4(second);
@@ -100,7 +100,7 @@ struct Canvas {
         label(238, y + 11, name, 15, text);
         right(699, y + 11, options[selected], 15, text);
         line(707, y + 8, 707, y + 30, border, 1);
-        const float direction = open ? -1.0f : 1.0f;
+        const float direction = animate("chevron", open ? -1.0f : 1.0f, 0.14f, Easing::Smoothstep);
         line(718, y + 19 - direction * 3, 723, y + 19 + direction * 3, muted, 1.5f);
         line(723, y + 19 + direction * 3, 728, y + 19 - direction * 3, muted, 1.5f);
         if (clicked)
@@ -188,10 +188,11 @@ struct Canvas {
         ImGui::PopID();
     }
     void range_slider(const char *id, const char *caption, float y, std::array<float, 2> &range,
-                      float maximum) {
+                      float maximum, bool compact = false) {
         ImGui::PushID(id);
         label(225, y, caption);
-        right(739, y, "range", 13, muted);
+        if (!compact)
+            right(739, y, "range", 13, muted);
         hit("track", 249, y + 17, 464, 20);
         const ImGuiID range_id = ImGui::GetItemID();
         const bool track_active = ImGui::IsItemActive();
@@ -220,9 +221,10 @@ struct Canvas {
         rect(249 + 464 * first, y + 20, 464 * (second - first), 10, pink, 5);
         circle(249 + 464 * first, y + 25, 3, IM_COL32(53, 24, 36, 255));
         circle(249 + 464 * second, y + 25, 3, IM_COL32(53, 24, 36, 255));
-        numeric_value("lower", 613, y + 37, 54, range[0], 0, range[1], "%.0f");
-        label(675, y + 37, "-", 13, muted);
-        numeric_value("upper", 685, y + 37, 54, range[1], range[0], maximum, "%.0f");
+        const float value_y = compact ? y : y + 37;
+        numeric_value("lower", 613, value_y, 54, range[0], 0, range[1], compact ? "%.1f" : "%.0f");
+        label(675, value_y, "-", 13, muted);
+        numeric_value("upper", 685, value_y, 54, range[1], range[0], maximum, compact ? "%.1f" : "%.0f");
         ImGui::PopID();
     }
     float color_picker(const char *id, const char *caption, float y, std::array<float, 4> &color,
@@ -547,7 +549,7 @@ struct Canvas {
     void icon(int type, float x, float y, ImU32 c) {
         constexpr const char *symbols[] = {icons::bullseye, icons::street_view, icons::running,
                                            icons::eye,      icons::code,        icons::user_plus,
-                                           icons::cloud,    icons::sliders};
+                                            "\xef\x81\xbc",    icons::sliders};
         glyph(symbols[type], x, y, 22, c);
     }
 };
@@ -557,10 +559,38 @@ struct Entry {
     const char *description;
 };
 constexpr Entry entries[] = {
+    {Category::Combat, "Aim Assist", "Aims at players for you"},
+    {Category::Combat, "Auto Clicker", "Clicks while holding LMB"},
+    {Category::Combat, "Auto Block", "Blocks after hitting a player"},
+    {Category::Combat, "Auto Weapon", "Selects your weapon when aiming at a player"},
+    {Category::Combat, "Back Track", "Hit players at their past position"},
+    {Category::Combat, "Jump Reset", "Jumps on hit to reduce knockback"},
+    {Category::Combat, "Reach", "Changes your attack reach"},
+    {Category::Combat, "Hitboxes", "Expands player hitboxes"},
+    {Category::Combat, "Piercing", "Hit through friends"},
+    {Category::Player, "Fast Use", "Use items faster"},
+    {Category::Player, "Auto Armor", "Automatically equips armor"},
+    {Category::Player, "Fast Place", "Place blocks faster"},
+    {Category::Player, "Chest Stealer", "Takes items from chests"},
+    {Category::Player, "Auto Pot", "Automatically throws healing potions"},
+    {Category::Player, "Auto Soup", "Automatically uses soup"},
+    {Category::Move, "Sprint", "Automatically sprint"},
+    {Category::Move, "Safe Walk", "Prevents walking off edges"},
+    {Category::Move, "Timer", "Changes the game speed"},
+    {Category::Visuals, "Player ESP", "Highlights players"},
+    {Category::Visuals, "Chest ESP", "Highlights chests"},
+    {Category::Visuals, "Name Tags", "Custom player name tags"},
+    {Category::Visuals, "Indicators", "Shows nearby players"},
+    {Category::Visuals, "Trajectories", "Shows projectile trajectories"},
+    {Category::Visuals, "Array List", "Displays enabled modules"},
+    {Category::Misc, "Weapons", "Filter which items count as weapons"},
+    {Category::Friends, "Friends", "Manage your friends"},
+    {Category::Configs, "Configs", "Manage your configurations"},
+    {Category::Settings, "Settings", "Customize your interface"},
     {Category::Player, "Widget Gallery", "A complete set of custom controls"}};
 }
 namespace {
-void module_settings(Canvas &c, ModuleState &state, const std::string &) {
+void module_settings(Canvas &c, ModuleState &state, const std::string &page) {
     float y = 180;
     auto section = [&](const char *title) {
         c.label(225, y, title, 13, IM_COL32(88, 88, 88, 255));
@@ -580,17 +610,193 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &) {
     auto combo = [&](const char *label, const char *const *options, int count, int initial) {
         auto [it, inserted] = state.choices.try_emplace(label, initial);
         c.combo(label, label, y, it->second, options, count);
-        y += 64;
+        y += page == "Widget Gallery" ? 64 : 48;
     };
     auto multi = [&](const char *label, const char *const *options, int count) {
         auto [it, inserted] = state.multi_choices.try_emplace(label, std::vector<bool>(count, false));
         c.multi_combo(label, label, y, it->second, options, count);
-        y += 64;
+        y += page == "Widget Gallery" ? 64 : 48;
     };
     static constexpr const char *types[] = {"Swords", "Axes", "Bows", "Pickaxes"};
     static constexpr const char *themes[] = {"Dark", "Midnight", "Light"};
     static constexpr const char *sizes[] = {"Small", "Medium", "Large"};
     static constexpr const char *targets[] = {"Players", "Mobs", "Animals", "Friends"};
+    if (page != "Widget Gallery") {
+        auto range = [&](const char *name, float low, float high, float maximum) {
+            auto [it, inserted] = state.ranges.try_emplace(name, std::array<float, 2>{low, high});
+            c.range_slider(name, name, y, it->second, maximum, true);
+            y += 52;
+        };
+        auto color = [&](const char *name, std::array<float, 4> initial) {
+            auto [it, inserted] = state.colors.try_emplace(name, initial);
+            auto [open, added] = state.switches.try_emplace(std::string(name) + " open", false);
+            y += c.color_picker(name, name, y, it->second, open->second);
+        };
+        static constexpr const char *conditions[] = {"Only clicking", "Holding weapon", "Breaking blocks", "In inventory"};
+        static constexpr const char *modes[] = {"Normal", "Multipoint"};
+        static constexpr const char *filtering[] = {"FOV", "Distance", "Health"};
+        if (page == "Aim Assist") {
+            section("General");
+            combo("Mode", modes, 2, 1);
+            slider("Multipoint offset", 0.8f, 1, 0.01f, "%.2f");
+            combo("Targeting", filtering, 3, 0);
+            slider("Lock hold", 500, 1000, 10, "%.0f ms");
+            combo("Filtering", filtering, 3, 0);
+            range("Range", 0, 4, 8);
+            slider("FOV", 60, 180, 1, "%.0f");
+            toggle("Visualize FOV");
+            toggle("Target line");
+            section("Speed");
+            slider("Horizontal speed", 30, 100, 1, "%.0f");
+            slider("Vertical speed", 30, 100, 1, "%.0f");
+            multi("Conditions", conditions, 4);
+            section("Behaviour");
+            toggle("Through walls");
+            toggle("Aim at invisible");
+        } else if (page == "Auto Clicker") {
+            slider("CPS", 15, 25, 0.1f, "%.1f");
+            multi("Conditions", conditions, 4);
+            slider("Break delay", 0, 500, 1, "%.0f ms");
+            section("Behaviour");
+            toggle("Limit attacks");
+            toggle("Prevent unrefill", true);
+            toggle("Fast break");
+            toggle("Randomization", true);
+            slider("CPS variation", 5, 10, 0.1f, "%.1f");
+            slider("Drop chance", 25, 100, 1, "%.0f");
+            slider("Drop amount", 3, 10, 0.1f, "%.1f CPS");
+            slider("Spike chance", 15, 100, 1, "%.0f");
+            slider("Spike amount", 3, 10, 0.1f, "%.1f CPS");
+        } else if (page == "Weapons") {
+            section("General");
+            multi("Allowed types", types, 4);
+            static constexpr const char *modules[] = {"Aim Assist", "Auto Clicker", "Auto Block", "Auto Weapon"};
+            multi("Applies to", modules, 4);
+        } else if (page == "Chest Stealer") {
+            range("Steal delay", 50, 100, 300);
+            static constexpr const char *options[] = {"Chest is open", "Close when finished", "Skip junk"};
+            multi("Conditions", options, 3);
+        } else if (page == "Player ESP" || page == "Chest ESP") {
+            static constexpr const char *dimensions[] = {"2D", "3D"};
+            static constexpr const char *fills[] = {"Solid", "Gradient"};
+            section("General");
+            combo("Mode", dimensions, 2, 0);
+            toggle("Box", true);
+            color("Box color", {1, 0.85f, 0, 1});
+            toggle("Fill", true);
+            combo("Fill style", fills, 2, 0);
+            toggle("Outline", true);
+            toggle("Corners", true);
+            slider("Corner size", 0.15f, 1, 0.01f, "%.2f");
+            if (page == "Player ESP") {
+                section("Health");
+                toggle("Health bar", true);
+                static constexpr const char *styles[] = {"HP-based", "Solid"};
+                static constexpr const char *positions[] = {"Left", "Right", "Top", "Bottom"};
+                combo("Health bar style", styles, 2, 0);
+                combo("Health bar position", positions, 4, 0);
+                slider("Bar thickness", 4, 6, 0.1f, "%.1f");
+                toggle("Animated", true);
+                slider("Animation speed", 10, 30, 1, "%.0f");
+                toggle("Health number", true);
+            } else {
+                toggle("Show ender chests", true);
+            }
+        } else if (page == "Name Tags") {
+            slider("Scale", 1, 3, 0.1f, "%.1f");
+            toggle("Distance scaling");
+            toggle("Background", true);
+            toggle("Text shadow", true);
+            section("Health");
+            toggle("Show health", true);
+            static constexpr const char *formats[] = {"HP", "Hearts", "Percentage"};
+            combo("Health format", formats, 3, 0);
+            section("Equipment");
+            toggle("Show enchantments", true);
+            toggle("Show item durability");
+        } else if (page == "Trajectories") {
+            slider("Line width", 1.5f, 5, 0.1f, "%.1fpx");
+            section("Colors");
+            color("Hit color", {0.3f, 1, 0.3f, 1});
+            color("Miss color", {1, 0.35f, 0.45f, 1});
+            section("Misc");
+            toggle("Render anticipated path");
+        } else if (page == "Indicators") {
+            slider("Arrow distance", 70, 200, 1, "%.0f");
+            slider("Arrow size", 10, 30, 1, "%.0f");
+            color("Arrow color", {1, 0.45f, 0.4f, 1});
+            slider("Arrow angle", 100, 180, 1, "%.0f");
+            toggle("Behind only", true);
+            toggle("Ignore friends", true);
+        } else if (page == "Array List") {
+            slider("Scale", 1, 3, 0.1f, "%.1f");
+            slider("Horizontal spacing", 4, 20, 0.1f, "%.1f");
+            slider("Vertical spacing", 0, 20, 0.1f, "%.1f");
+            toggle("Text shadows", true);
+            slider("Shadow opacity", 255, 255, 1, "%.0f");
+            toggle("Lowercase", true);
+            toggle("Show flags", true);
+            toggle("Bracket flags");
+            toggle("Hide visual modules");
+        } else if (page == "Piercing") {
+            static constexpr const char *sort[] = {"Aim", "Distance"};
+            static constexpr const char *through[] = {"Friends", "Players", "Mobs"};
+            combo("Sort by", sort, 2, 0);
+            multi("Hit through", through, 3);
+        } else if (page == "Friends") {
+            toggle("Ignore attacks");
+            toggle("Override Player ESP", true);
+            color("Friend color", {0.35f, 0.75f, 1, 1});
+            toggle("Override indicators", true);
+            auto &name = state.texts["Player name"];
+            c.text_input("friend_name", "Player name", y, name);
+            y += 72;
+            if (c.button("add_friend", "Add friend", 225, y) && !name.empty()) {
+                state.multi_choices[name] = {true};
+                name.clear();
+            }
+            y += 44;
+            for (auto it = state.multi_choices.begin(); it != state.multi_choices.end();) {
+                c.label(225, y + 5, it->first.c_str(), 15);
+                if (c.button(it->first.c_str(), "Remove", 649, y, 90))
+                    it = state.multi_choices.erase(it);
+                else
+                    ++it;
+                y += 40;
+            }
+        } else if (page == "Settings") {
+            combo("Theme", themes, 3, 0);
+            slider("Menu scale", 1, 2, 0.05f, "%.2f");
+            toggle("Enable animations", true);
+            color("Accent color", {0.92f, 0.25f, 0.47f, 1});
+        } else if (page == "Configs") {
+            auto &name = state.texts["Config name"];
+            c.text_input("config_name", "Config name", y, name);
+            y += 72;
+            if (c.button("create", "Create config", 225, y) && !name.empty()) {
+                state.multi_choices[name] = {true};
+                name.clear();
+            }
+            y += 44;
+            for (const auto &[name, selected] : state.multi_choices) {
+                c.label(225, y, name.c_str(), 15);
+                y += 40;
+            }
+        } else {
+            section("General");
+            if (page == "Reach") range("Range", 3, 3.3f, 6);
+            else if (page == "Hitboxes") slider("Expansion", 0.1f, 1, 0.01f, "%.2f");
+            else if (page == "Timer") slider("Speed", 1, 3, 0.05f, "%.2f");
+            else if (page == "Back Track") slider("Delay", 50, 500, 1, "%.0f ms");
+            else if (page == "Auto Pot" || page == "Auto Soup") slider("Health", 10, 20, 1, "%.0f");
+            else if (page == "Jump Reset") slider("Chance", 100, 100, 1, "%.0f%%");
+            else slider("Delay", 100, 500, 1, "%.0f ms");
+            multi("Conditions", conditions, 4);
+        }
+        ImGui::SetCursorScreenPos(c.p(225, y));
+        ImGui::Dummy({1, 1});
+        return;
+    }
     section("Combobox");
     combo("Allowed types", types, 4, 0);
     combo("Theme", themes, 3, 0);
@@ -712,14 +918,9 @@ void Interface::render(State &s) {
     Canvas c{ImGui::GetWindowDrawList(), font_, regular_, origin, scale, icons_, tweens_, springs_,
              scroll_targets_, scroll_animations_, range_handles_, color_hues_, hex_buffers_};
     c.rect(1, 3, 770, 622, bg, 18);
-    c.label(695, 6, "limitless gui", 16, muted);
-    c.d->PushClipRect(c.p(0, 30), c.p(182, 480), true);
+    c.right(758, 7, "timewarp", 14, muted);
     const ImU32 logo = IM_COL32(48, 48, 48, 255);
-    c.rect(91, 77, 171, 43, logo, 14);
-    c.rect(91, 382, 171, 43, logo, 14);
-    c.d->AddBezierCubic(c.p(133, 110), c.p(133, 210), c.p(222, 235), c.p(222, 269), c.tint(logo), 43 * scale);
-    c.d->AddBezierCubic(c.p(222, 267), c.p(222, 312), c.p(133, 350), c.p(133, 391), c.tint(logo), 43 * scale);
-    c.d->PopClipRect();
+    c.glyph("\xef\x89\x94", 89, 586, 66, logo);
     const char *categories[] = {"Combat", "Player",  "Move",    "Visuals",
                                 "Misc",   "Friends", "Configs", "Settings"};
     c.hit("category_navigation", 14, 47, 154, 392);
@@ -735,7 +936,7 @@ void Interface::render(State &s) {
     }
     const float selected_y = 47 + static_cast<int>(s.category) * 49.7f;
     const float selected_width =
-        font_->CalcTextSizeA(20, 1000, 0, categories[static_cast<int>(s.category)]).x + 57;
+        font_->CalcTextSizeA(17, 1000, 0, categories[static_cast<int>(s.category)]).x + 57;
     const float pill_y = category_y_.update(selected_y, dt, 560, 44);
     const float pill_width = category_width_.update(selected_width, dt, 560, 44);
     c.rect(14, pill_y, pill_width, 42, pink, 22);
@@ -754,33 +955,26 @@ void Interface::render(State &s) {
         const ImU32 base = blend(muted, text, hover_weights[i] * 0.35f);
         const auto color = blend(base, IM_COL32(43, 24, 32, 255), selected);
         c.icon(i, 38, y + 21, color);
-        c.label(62, y + 10, categories[i], 20, color);
+        c.label(62, y + 12, categories[i], 17, color);
     }
-    c.rect(17, 505, 150, 38, IM_COL32(24, 24, 24, 255), 8);
-    c.outline(17, 505, 150, 38, border, 8);
-    c.glyph(icons::search, 33, 525, 16, muted);
-    ImGui::SetCursorScreenPos(c.p(49, 511));
-    ImGui::SetNextItemWidth(112 * scale);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(24, 24, 24, 255));
-    ImGui::PushStyleColor(ImGuiCol_Text, muted);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
-    ImGui::SetWindowFontScale(0.8f * scale);
-    if (ImGui::InputTextWithHint("##search", "Search", s.search.data(), s.search.size()))
-        s.page.clear();
-    ImGui::SetWindowFontScale(1);
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor(2);
-    c.rect(17, 568, 46, 41, IM_COL32(220, 220, 220, 255), 8);
-    const ImU32 pixels[8] = {0xffbbb9b7, 0xfff1f1f1, 0xffe6b2ca, 0xffa5a1a0,
-                             0xff57575b, 0xffe9e9e9, 0xffb0d7e8, 0xfffbfbfb};
-    constexpr int face[7][7] = {{0, 1, 1, 1, 2, 2, 2}, {1, 1, 3, 1, 2, 1, 2}, {1, 1, 3, 1, 2, 1, 2},
-                                {1, 1, 4, 1, 1, 4, 1}, {0, 1, 6, 1, 1, 6, 1}, {0, 1, 1, 1, 1, 1, 1},
-                                {0, 1, 1, 1, 1, 1, 0}};
-    for (int y = 0; y < 7; ++y)
-        for (int x = 0; x < 7; ++x)
-            c.rect(19 + x * 6, 567 + y * 6, 6, 6, pixels[face[y][x]]);
-    c.label(76, 570, "dev", 14);
-    c.label(76, 590, "Lifetime", 12, muted);
+    if (s.page == "Widget Gallery" || s.search[0] != '\0') {
+        c.rect(17, 505, 150, 38, IM_COL32(24, 24, 24, 255), 8);
+        c.outline(17, 505, 150, 38, border, 8);
+        c.glyph(icons::search, 33, 525, 16, muted);
+        ImGui::SetCursorScreenPos(c.p(49, 511));
+        ImGui::SetNextItemWidth(112 * scale);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(24, 24, 24, 255));
+        ImGui::PushStyleColor(ImGuiCol_Text, muted);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0);
+        ImGui::SetWindowFontScale(0.8f * scale);
+        if (ImGui::InputTextWithHint("##search", "Search", s.search.data(), s.search.size()))
+            s.page.clear();
+        ImGui::SetWindowFontScale(1);
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(2);
+    }
+    c.label(25, 571, "dev", 13);
+    c.label(25, 591, "30 days", 10, muted);
     c.rect(182, 29, 589, 596, IM_COL32(14, 14, 14, 255), 17);
     c.rect(200, 45, 555, 566, panel, 9);
     if (!content_initialized_) {
@@ -859,7 +1053,7 @@ void Interface::render(State &s) {
         ImGui::Dummy({1, 1});
         ImGui::EndChild();
     } else {
-        c.label(224, 60, s.page.c_str(), 28);
+        c.label(224, 62, s.page.c_str(), 22);
         const bool close_clicked = c.hit("close", 704, 57, 36, 36);
         const float close_hover = c.animate("close_hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.14f,
                                             Easing::Smoothstep);
