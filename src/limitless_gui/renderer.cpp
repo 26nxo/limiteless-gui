@@ -260,7 +260,7 @@ struct Canvas {
         const ImU32 hover_start = accent ? accent : pink;
         const ImU32 hover_end = accent ? blend(accent, text, 0.12f) : pink_second;
         constexpr float corner = 3.0f;
-        const float hold_mix = hold_progress * 0.18f;
+        const float hold_mix = hold_progress * 0.18f * hold_line_alpha;
         gradient_rect(x, y, width, 28, blend(blend(base, hover_start, hover * 0.8f), hover_start, hold_mix),
                       blend(blend(base, hover_end, hover * 0.8f), hover_end, hold_mix), corner);
         outline(x, y, width, 28,
@@ -272,7 +272,8 @@ struct Canvas {
                              ImGui::ColorConvertFloat4ToU32(trace));
         }
         glyph(icon, x + width / 2, y + 14, 15,
-              blend(icon_color, text, std::max(hover * 0.3f, hold_progress * 0.6f)));
+              blend(icon_color, text,
+                    std::max(hover * 0.3f, hold_progress * 0.6f * hold_line_alpha)));
         if (hovered)
             ImGui::SetTooltip("%s", tooltip);
         ImGui::PopID();
