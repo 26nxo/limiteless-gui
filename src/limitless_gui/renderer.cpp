@@ -217,7 +217,7 @@ struct Canvas {
             range_handles.erase(range_id);
         const float first = std::clamp(range[0] / maximum, 0.0f, 1.0f);
         const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
-        rect(249, y + 21.5f, 464, 7, IM_COL32(22, 22, 22, 255), 3.5f);
+        rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
         slider_fill(249 + 464 * first, y + 25, 464 * (second - first), true);
         const float value_y = compact ? y : y + 37;
         numeric_value("lower", 613, value_y, 54, range[0], 0, range[1], compact ? "%.1f" : "%.0f");
@@ -505,9 +505,9 @@ struct Canvas {
     void slider_fill(float x, float center_y, float width, bool range = false) {
         if (width <= 0)
             return;
-        const float inset = std::min(3.5f, width / 2);
+        const float inset = std::min(5.0f, width / 2);
         const float radius = std::min(2.0f, inset * 0.65f);
-        rect(x, center_y - 3.5f, width, 7, pink, 3.5f);
+        rect(x, center_y - 5, width, 10, pink, 5);
         if (range)
             circle(x + inset, center_y, radius, IM_COL32(53, 24, 36, 255));
         circle(x + width - inset, center_y, radius, IM_COL32(53, 24, 36, 255));
@@ -539,8 +539,8 @@ struct Canvas {
         const float display = animate("fill", ratio, 0.18f, Easing::ExpoOut, active);
         const float hover = animate("bar_hover", (active || hovered) ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
-        rect(249, y + 21.5f, 464, 7,
-             blend(IM_COL32(22, 22, 22, 255), IM_COL32(26, 26, 26, 255), hover), 3.5f);
+        rect(249, y + 20, 464, 10,
+             blend(IM_COL32(22, 22, 22, 255), IM_COL32(26, 26, 26, 255), hover), 5);
         slider_fill(249, y + 25, 464 * display);
         ImGui::PopID();
     }
@@ -587,13 +587,12 @@ constexpr Entry entries[] = {
     {Category::Visuals, "Array List", "Displays enabled modules"},
     {Category::Misc, "Weapons", "Filter which items count as weapons"},
     {Category::Friends, "Friends", "Manage your friends"},
-    {Category::Configs, "Configs", "Manage your configurations"},
     {Category::Settings, "Settings", "Customize your interface"},
     {Category::Player, "Widget Gallery", "A complete set of custom controls"}};
 }
 namespace {
 void module_settings(Canvas &c, ModuleState &state, const std::string &page) {
-    float y = 180;
+    float y = page == "Configs" ? 135.0f : 180.0f;
     auto section = [&](const char *title) {
         c.label(225, y, title, 13, IM_COL32(88, 88, 88, 255));
         y += 24;
@@ -746,6 +745,7 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &page) {
             combo("Sort by", sort, 2, 0);
             multi("Hit through", through, 3);
         } else if (page == "Friends") {
+            constexpr const char *prefix = "friend:";
             toggle("Ignore attacks");
             toggle("Override Player ESP", true);
             color("Friend color", {0.35f, 0.75f, 1, 1});
@@ -754,12 +754,16 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &page) {
             c.text_input("friend_name", "Player name", y, name);
             y += 72;
             if (c.button("add_friend", "Add friend", 225, y) && !name.empty()) {
-                state.multi_choices[name] = {true};
+                state.multi_choices[prefix + name] = {true};
                 name.clear();
             }
             y += 44;
             for (auto it = state.multi_choices.begin(); it != state.multi_choices.end();) {
-                c.label(225, y + 5, it->first.c_str(), 15);
+                if (it->first.rfind(prefix, 0) != 0) {
+                    ++it;
+                    continue;
+                }
+                c.label(225, y + 5, it->first.c_str() + std::char_traits<char>::length(prefix), 15);
                 if (c.button(it->first.c_str(), "Remove", 649, y, 90))
                     it = state.multi_choices.erase(it);
                 else
@@ -772,16 +776,25 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &page) {
             toggle("Enable animations", true);
             color("Accent color", {0.92f, 0.25f, 0.47f, 1});
         } else if (page == "Configs") {
+            constexpr const char *prefix = "config:";
             auto &name = state.texts["Config name"];
             c.text_input("config_name", "Config name", y, name);
             y += 72;
             if (c.button("create", "Create config", 225, y) && !name.empty()) {
-                state.multi_choices[name] = {true};
+                state.multi_choices[prefix + name] = {true};
                 name.clear();
             }
             y += 44;
-            for (const auto &[name, selected] : state.multi_choices) {
-                c.label(225, y, name.c_str(), 15);
+            for (auto it = state.multi_choices.begin(); it != state.multi_choices.end();) {
+                if (it->first.rfind(prefix, 0) != 0) {
+                    ++it;
+                    continue;
+                }
+                c.label(225, y + 5, it->first.c_str() + std::char_traits<char>::length(prefix), 15);
+                if (c.button(it->first.c_str(), "Remove", 649, y, 90))
+                    it = state.multi_choices.erase(it);
+                else
+                    ++it;
                 y += 40;
             }
         } else {
@@ -936,6 +949,10 @@ void Interface::render(State &s) {
             s.binding = false;
         }
     }
+    if (s.category == Category::Configs) {
+        s.page = "Configs";
+        s.binding = false;
+    }
     const float selected_y = 47 + static_cast<int>(s.category) * 49.7f;
     const float selected_width =
         font_->CalcTextSizeA(17, 1000, 0, categories[static_cast<int>(s.category)]).x + 57;
@@ -1053,6 +1070,18 @@ void Interface::render(State &s) {
         }
         ImGui::SetCursorScreenPos(c.p(215, y));
         ImGui::Dummy({1, 1});
+        ImGui::EndChild();
+    } else if (s.page == "Configs") {
+        c.label(224, 62, "Configs", 22);
+        c.line(225, 110, 739, 110, IM_COL32(31, 31, 31, 255), 1);
+        ImGui::SetCursorScreenPos(c.p(210, 124));
+        ImGui::BeginChild("config_catalog", {540 * scale, 479 * scale}, ImGuiChildFlags_None,
+                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar |
+                              ImGuiWindowFlags_NoScrollWithMouse);
+        c.d = ImGui::GetWindowDrawList();
+        c.smooth_scroll("config_scroll");
+        c.origin.y -= ImGui::GetScrollY();
+        module_settings(c, s.modules[s.page], s.page);
         ImGui::EndChild();
     } else {
         c.label(224, 62, s.page.c_str(), 22);

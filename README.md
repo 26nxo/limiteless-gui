@@ -16,7 +16,7 @@ run `build/Release/limitless_gui.exe` with its `assets` folder alongside it.
 
 ## preview
 
-the menu opens on the combat module list. click a gear to open settings, click a switch to toggle it, and drag through sidebar categories to navigate. press insert to fade the menu in or out. double-click slider values to edit them.
+the menu opens on the combat module list. click a gear to open settings, click a switch to toggle it, and drag through sidebar categories to navigate. configs is the only config module, so selecting it opens its page directly instead of a module list. press insert to fade the menu in or out. double-click slider values to edit them.
 
 use `--category player` to select a category, `--page "Aim Assist"` to inspect settings, or `--page "Widget Gallery"` for the control gallery. add `--screenshot capture.bmp` to save a settled frame and exit.
 
