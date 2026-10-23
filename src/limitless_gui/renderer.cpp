@@ -220,10 +220,10 @@ struct Canvas {
         return clicked;
     }
     bool icon_button(const char *id, const char *icon, const char *tooltip, float x, float y,
-                     float width = 44, ImU32 tint = 0) {
+                     float width = 44, ImU32 tint = 0, bool hoverable = true) {
         ImGui::PushID(id);
         const bool clicked = hit("button", x, y, width, 28);
-        const bool hovered = ImGui::IsItemHovered();
+        const bool hovered = hoverable && ImGui::IsItemHovered();
         const float hover = animate("hover", hovered ? 1.0f : 0.0f, 0.12f, Easing::Smoothstep);
         const ImU32 base = blend(panel, text, 0.08f);
         const ImU32 icon_color = tint ? tint : muted;
@@ -549,11 +549,11 @@ struct Canvas {
         ImGui::PopStyleColor(2);
         ImGui::PopID();
     }
-    void text_input(const char *id, const char *name, float y, std::string &value) {
+    void text_input(const char *id, const char *name, float y, std::string &value, float width = 514) {
         label(225, y, name, 14, muted);
         ImGui::PushID(id);
         ImGui::SetCursorScreenPos(p(225, y + 22));
-        ImGui::SetNextItemWidth(514 * scale);
+        ImGui::SetNextItemWidth(width * scale);
         ImGui::PushStyleColor(ImGuiCol_FrameBg, blend(panel, text, 0.06f));
         ImGui::PushStyleColor(ImGuiCol_Text, text);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {9 * scale, 6 * scale});
@@ -926,7 +926,9 @@ void settings_page(Canvas &c, SettingsState &state) {
 
 void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
     float y = 135;
-    c.text_input("config_name", "Config name", y, configs.name);
+    c.text_input("config_name", "Config name", y, configs.name, 466);
+    if (c.icon_button("open_configs", icons::folder, "Open folder", 699, y + 22, 40, 0, false))
+        reveal_configs_folder();
     y += 72;
     const bool duplicate = std::any_of(configs.entries.begin(), configs.entries.end(),
                                        [&](const ConfigEntry &entry) { return entry.name == configs.name; });
@@ -950,18 +952,16 @@ void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
     for (int i = 0; i < static_cast<int>(configs.entries.size()); ++i) {
         auto &entry = configs.entries[static_cast<size_t>(i)];
         c.rect(225, y, 514, 34, blend(panel, text, 0.025f), 6);
-        c.d->PushClipRect(c.p(233, y), c.p(547, y + 34), true);
+        c.d->PushClipRect(c.p(233, y), c.p(595, y + 34), true);
         c.label(233, y + 9, entry.name.c_str(), 15, text);
         c.d->PopClipRect();
         const auto index = std::to_string(i);
-        if (c.icon_button(("load_" + index).c_str(), icons::upload, "Load", 555, y + 3, 40))
+        if (c.icon_button(("load_" + index).c_str(), icons::upload, "Load", 603, y + 3, 40))
             load_settings(settings, entry.settings);
-        if (c.icon_button(("save_" + index).c_str(), icons::download, "Save", 603, y + 3, 40)) {
+        if (c.icon_button(("save_" + index).c_str(), icons::download, "Save", 651, y + 3, 40)) {
             entry.settings = snapshot_settings(settings);
             write_config_file(entry);
         }
-        if (c.icon_button(("folder_" + index).c_str(), icons::folder, "Open folder", 651, y + 3, 40))
-            reveal_configs_folder();
         if (c.icon_button(("delete_" + index).c_str(), icons::trash, "Delete", 699, y + 3, 40, danger))
             remove = i;
         y += 42;
