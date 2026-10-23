@@ -91,6 +91,15 @@ int main() {
         io.AddMouseButtonEvent(0, false);
         frame();
     };
+    auto hold = [&](float x, float y) {
+        io.AddMousePosEvent(x, y);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        for (int i = 0; i < 66; ++i)
+            frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+    };
     frame();
     frame();
     require(ImGui::GetDrawData()->TotalVtxCount > 0, "renderer produced no geometry");
@@ -180,16 +189,18 @@ int main() {
     require(state.configs.entries.size() == 1, "config file was not saved");
     state.settings.theme = 0;
     click(615, 312);
+    require(state.settings.theme == 0, "config applied on a short click");
+    hold(615, 312);
     require(state.settings.theme == 1, "config load failed");
     state.settings.theme = 2;
-    click(663, 312);
+    hold(663, 312);
     limitless_gui::load_configs(state.configs);
     require(state.configs.entries.size() == 1 && state.configs.entries[0].settings.theme == 2,
             "config save was not persisted");
     state.settings.theme = 0;
-    click(615, 312);
+    hold(615, 312);
     require(state.settings.theme == 2, "config save failed");
-    click(711, 312);
+    hold(711, 312);
     limitless_gui::load_configs(state.configs);
     require(state.configs.entries.empty(), "config deletion failed");
 

@@ -220,12 +220,37 @@ struct Canvas {
         return clicked;
     }
     bool icon_button(const char *id, const char *icon, const char *tooltip, float x, float y,
-                     float width = 44, ImU32 tint = 0, bool hoverable = true) {
+                     float width = 44, ImU32 tint = 0, bool hoverable = true,
+                     float hold_seconds = 0.0f) {
         ImGui::PushID(id);
         const bool clicked = hit("button", x, y, width, 28);
-        const bool hovered = hoverable && ImGui::IsItemHovered();
+        const bool item_hovered = ImGui::IsItemHovered();
+        const bool hovered = hoverable && item_hovered;
         const float hover =
             hoverable ? animate("hover", hovered ? 1.0f : 0.0f, 0.12f, Easing::Smoothstep) : 0.0f;
+        float hold_progress = 0.0f;
+        bool triggered = false;
+        if (hold_seconds > 0.0f) {
+            auto *storage = ImGui::GetStateStorage();
+            const ImGuiID held_id = ImGui::GetID("held");
+            const ImGuiID fired_id = ImGui::GetID("fired");
+            float held = storage->GetFloat(held_id, 0.0f);
+            bool fired = storage->GetBool(fired_id, false);
+            const bool holding = ImGui::IsItemActive() && item_hovered;
+            if (!holding) {
+                held = 0.0f;
+                fired = false;
+            } else if (!fired) {
+                held += ImGui::GetIO().DeltaTime;
+                if (held >= hold_seconds) {
+                    fired = true;
+                    triggered = true;
+                }
+            }
+            storage->SetFloat(held_id, held);
+            storage->SetBool(fired_id, fired);
+            hold_progress = fired ? 1.0f : std::clamp(held / hold_seconds, 0.0f, 1.0f);
+        }
         const ImU32 base = blend(panel, text, 0.08f);
         const ImU32 icon_color = tint ? tint : muted;
         const ImU32 hover_start = tint ? tint : pink;
@@ -234,10 +259,15 @@ struct Canvas {
                       blend(base, hover_end, hover * 0.8f), 6);
         outline(x, y, width, 28, blend(border, hover_start, hover), 6);
         glyph(icon, x + width / 2, y + 14, 15, blend(icon_color, text, hover * 0.3f));
+        if (hold_progress > 0.0f) {
+            const float inset = 5.0f;
+            gradient_rect(x + inset, y + 25, (width - inset * 2) * hold_progress, 2,
+                          hover_start, hover_end, 1);
+        }
         if (hovered)
             ImGui::SetTooltip("%s", tooltip);
         ImGui::PopID();
-        return clicked;
+        return hold_seconds > 0.0f ? triggered : clicked;
     }
     bool checkbox(const char *id, const char *caption, float x, float y, bool &value) {
         ImGui::PushID(id);
@@ -949,6 +979,7 @@ void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
     y += 28;
     if (configs.entries.empty())
         c.label(225, y + 6, "No configs yet", 15, muted);
+    constexpr float hold_seconds = 0.9f;
     int remove = -1;
     for (int i = 0; i < static_cast<int>(configs.entries.size()); ++i) {
         auto &entry = configs.entries[static_cast<size_t>(i)];
@@ -957,14 +988,16 @@ void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
         c.label(233, y + 9, entry.name.c_str(), 15, text);
         c.d->PopClipRect();
         const auto index = std::to_string(i);
-        if (c.icon_button(("load_" + index).c_str(), icons::upload, "Load", 595, y + 3, 40, 0, false))
+        if (c.icon_button(("load_" + index).c_str(), icons::upload, "Load", 595, y + 3, 40, 0, false,
+                          hold_seconds))
             load_settings(settings, entry.settings);
-        if (c.icon_button(("save_" + index).c_str(), icons::download, "Save", 643, y + 3, 40, 0, false)) {
+        if (c.icon_button(("save_" + index).c_str(), icons::download, "Save", 643, y + 3, 40, 0, false,
+                          hold_seconds)) {
             entry.settings = snapshot_settings(settings);
             write_config_file(entry);
         }
         if (c.icon_button(("delete_" + index).c_str(), icons::trash, "Delete", 691, y + 3, 40, danger,
-                          false))
+                          false, hold_seconds))
             remove = i;
         y += 46;
     }
