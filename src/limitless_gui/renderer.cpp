@@ -197,28 +197,44 @@ struct Canvas {
         }
         const ImVec2 anchor = p(739, y + 28);
         const ImVec2 display = ImGui::GetIO().DisplaySize;
-        ImGui::SetNextWindowPos({std::max(0.0f, std::min(anchor.x - 252 * scale, display.x - 252 * scale)),
-                                 std::max(0.0f, std::min(anchor.y, display.y - 330 * scale))},
+        ImGui::SetNextWindowPos({std::max(0.0f, std::min(anchor.x - 272 * scale, display.x - 272 * scale)),
+                                 std::max(0.0f, std::min(anchor.y, display.y - 350 * scale))},
                                 ImGuiCond_Appearing);
-        ImGui::SetNextWindowSize({252 * scale, 0});
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {14 * scale, 14 * scale});
-        ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 8 * scale);
+        ImGui::SetNextWindowSize({272 * scale, 0});
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {18 * scale, 18 * scale});
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 18 * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 9 * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {10 * scale, 8 * scale});
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {10 * scale, 12 * scale});
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, scale);
         ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(18, 18, 18, 255));
         ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(27, 27, 27, 255));
         ImGui::PushStyleColor(ImGuiCol_Border, border);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(34, 30, 32, 255));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(39, 31, 35, 255));
+        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, IM_COL32(235, 65, 119, 80));
         if (ImGui::BeginPopup("color_editor")) {
             ImGui::SetWindowFontScale(0.75f * scale);
-            ImGui::TextUnformatted(caption);
-            ImGui::Spacing();
-            ImGui::SetNextItemWidth(224 * scale);
+            const ImVec2 header = ImGui::GetCursorScreenPos();
+            auto *draw = ImGui::GetWindowDrawList();
+            draw->AddRectFilled(header, {header.x + 236 * scale, header.y + 40 * scale},
+                                tint(IM_COL32(25, 25, 25, 255)), 10 * scale);
+            draw->AddRectFilled({header.x + 10 * scale, header.y + 10 * scale},
+                                {header.x + 30 * scale, header.y + 30 * scale},
+                                tint(ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1})),
+                                6 * scale);
+            draw->AddText(font, 15 * scale, {header.x + 42 * scale, header.y + 12 * scale},
+                          tint(text), caption);
+            ImGui::Dummy({236 * scale, 40 * scale});
+            ImGui::SetNextItemWidth(236 * scale);
             ImGui::ColorPicker4("##picker", color.data(), ImGuiColorEditFlags_PickerHueBar |
                                 ImGuiColorEditFlags_DisplayHex | ImGuiColorEditFlags_NoSidePreview |
                                 ImGuiColorEditFlags_NoSmallPreview | ImGuiColorEditFlags_NoOptions |
                                 ImGuiColorEditFlags_NoAlpha);
             ImGui::EndPopup();
         }
-        ImGui::PopStyleColor(3);
-        ImGui::PopStyleVar(2);
+        ImGui::PopStyleColor(6);
+        ImGui::PopStyleVar(6);
         ImGui::PopID();
         return 36;
     }
