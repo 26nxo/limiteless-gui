@@ -217,10 +217,8 @@ struct Canvas {
             range_handles.erase(range_id);
         const float first = std::clamp(range[0] / maximum, 0.0f, 1.0f);
         const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
-        rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
-        rect(249 + 464 * first, y + 20, 464 * (second - first), 10, pink, 5);
-        circle(249 + 464 * first, y + 25, 3, IM_COL32(53, 24, 36, 255));
-        circle(249 + 464 * second, y + 25, 3, IM_COL32(53, 24, 36, 255));
+        rect(249, y + 22, 464, 6, IM_COL32(22, 22, 22, 255), 3);
+        slider_fill(249 + 464 * first, y + 25, 464 * (second - first), true);
         const float value_y = compact ? y : y + 37;
         numeric_value("lower", 613, value_y, 54, range[0], 0, range[1], compact ? "%.1f" : "%.0f");
         label(675, value_y, "-", 13, muted);
@@ -504,6 +502,16 @@ struct Canvas {
                blend(IM_COL32(63, 63, 63, 255), IM_COL32(33, 26, 29, 255), on));
         ImGui::PopID();
     }
+    void slider_fill(float x, float center_y, float width, bool range = false) {
+        if (width <= 0)
+            return;
+        const float inset = std::min(3.0f, width / 2);
+        const float radius = std::min(2.0f, inset * 0.65f);
+        rect(x, center_y - 3, width, 6, pink, 3);
+        if (range)
+            circle(x + inset, center_y, radius, IM_COL32(53, 24, 36, 255));
+        circle(x + width - inset, center_y, radius, IM_COL32(53, 24, 36, 255));
+    }
     void slider(const char *id, const char *name, float y, float &value, float maximum, float step,
                 const char *format) {
         label(225, y, name);
@@ -531,15 +539,9 @@ struct Canvas {
         const float display = animate("fill", ratio, 0.18f, Easing::ExpoOut, active);
         const float hover = animate("bar_hover", (active || hovered) ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
-        const float height = animate("height", active ? 12.0f : hovered ? 11.0f : 10.0f, 0.12f,
-                                     Easing::Smoothstep);
-        rect(249, y + 25 - height / 2, 464, height,
-             blend(IM_COL32(22, 22, 22, 255), IM_COL32(26, 26, 26, 255), hover), height / 2);
-        if (display > 0.0005f) {
-            const float w = 464 * display;
-            rect(249, y + 25 - height / 2, w, height, pink, height / 2);
-        }
-        circle(249 + 464 * display, y + 25, 3, IM_COL32(53, 24, 36, 255));
+        rect(249, y + 22, 464, 6,
+             blend(IM_COL32(22, 22, 22, 255), IM_COL32(26, 26, 26, 255), hover), 3);
+        slider_fill(249, y + 25, 464 * display);
         ImGui::PopID();
     }
     void glyph(const char *icon, float x, float y, float size, ImU32 color) {
