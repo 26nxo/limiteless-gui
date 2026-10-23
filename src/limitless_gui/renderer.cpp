@@ -187,57 +187,40 @@ struct Canvas {
         const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
         if (clicked)
-            expanded = !expanded;
+            ImGui::OpenPopup("color_editor");
+        expanded = ImGui::IsPopupOpen("color_editor");
         rect(715, y, 24, 24, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 5);
         outline(715, y, 24, 24, blend(border, pink, expanded ? 1.0f : hover * 0.5f), 5);
         if (!expanded) {
             ImGui::PopID();
             return 36;
         }
-        const float top = y + 36;
-        rect(225, top, 514, 108, IM_COL32(18, 18, 18, 255), 6);
-        outline(225, top, 514, 108, border, 6);
-        label(239, top + 12, "Color", 14, muted);
-        char hex[7];
-        std::snprintf(hex, sizeof(hex), "%02X%02X%02X", static_cast<int>(color[0] * 255 + 0.5f),
-                      static_cast<int>(color[1] * 255 + 0.5f), static_cast<int>(color[2] * 255 + 0.5f));
-        label(605, top + 13, "#", 14, muted);
-        ImGui::SetCursorScreenPos(p(621, top + 8));
-        ImGui::SetNextItemWidth(102 * scale);
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(25, 25, 25, 255));
-        if (ImGui::InputText("##hex", hex, sizeof(hex), ImGuiInputTextFlags_CharsHexadecimal |
-                             ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue)) {
-            unsigned int rgb;
-            if (std::char_traits<char>::length(hex) == 6 && std::sscanf(hex, "%x", &rgb) == 1) {
-                color[0] = ((rgb >> 16) & 255) / 255.0f;
-                color[1] = ((rgb >> 8) & 255) / 255.0f;
-                color[2] = (rgb & 255) / 255.0f;
-            }
+        const ImVec2 anchor = p(739, y + 28);
+        const ImVec2 display = ImGui::GetIO().DisplaySize;
+        ImGui::SetNextWindowPos({std::max(0.0f, std::min(anchor.x - 252 * scale, display.x - 252 * scale)),
+                                 std::max(0.0f, std::min(anchor.y, display.y - 330 * scale))},
+                                ImGuiCond_Appearing);
+        ImGui::SetNextWindowSize({252 * scale, 0});
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {14 * scale, 14 * scale});
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 8 * scale);
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(18, 18, 18, 255));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(27, 27, 27, 255));
+        ImGui::PushStyleColor(ImGuiCol_Border, border);
+        if (ImGui::BeginPopup("color_editor")) {
+            ImGui::SetWindowFontScale(0.75f * scale);
+            ImGui::TextUnformatted(caption);
+            ImGui::Spacing();
+            ImGui::SetNextItemWidth(224 * scale);
+            ImGui::ColorPicker4("##picker", color.data(), ImGuiColorEditFlags_PickerHueBar |
+                                ImGuiColorEditFlags_DisplayHex | ImGuiColorEditFlags_NoSidePreview |
+                                ImGuiColorEditFlags_NoSmallPreview | ImGuiColorEditFlags_NoOptions |
+                                ImGuiColorEditFlags_NoAlpha);
+            ImGui::EndPopup();
         }
-        ImGui::PopStyleColor();
-        label(239, top + 80, "HEX: enter six digits and press Enter", 12, muted);
-        constexpr ImU32 palette[] = {IM_COL32(218, 57, 119, 255), IM_COL32(213, 80, 80, 255),
-                                     IM_COL32(224, 148, 59, 255), IM_COL32(190, 190, 73, 255),
-                                     IM_COL32(78, 179, 111, 255), IM_COL32(73, 158, 207, 255),
-                                     IM_COL32(105, 98, 203, 255), IM_COL32(179, 91, 196, 255)};
-        for (int i = 0; i < static_cast<int>(std::size(palette)); ++i) {
-            const float x = 239 + i * 43;
-            ImGui::PushID(i);
-            const bool selected = ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}) == palette[i];
-            const bool picked = hit("color", x, top + 34, 30, 30);
-            const float swatch_hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.10f,
-                                               Easing::Smoothstep);
-            rect(x, top + 34, 30, 30, palette[i], 8);
-            outline(x, top + 34, 30, 30, selected ? text : blend(border, text, swatch_hover), 8);
-            if (picked) {
-                const ImVec4 picked_color = ImGui::ColorConvertU32ToFloat4(palette[i]);
-                color = {picked_color.x, picked_color.y, picked_color.z, 1};
-                expanded = false;
-            }
-            ImGui::PopID();
-        }
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(2);
         ImGui::PopID();
-        return 156;
+        return 36;
     }
     void multi_combo(const char *id, const char *caption, float y, std::vector<bool> &selected,
                      const char *const *options, int count) {
