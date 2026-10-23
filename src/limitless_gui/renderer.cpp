@@ -257,13 +257,13 @@ struct Canvas {
         const ImU32 hover_end = tint ? blend(tint, text, 0.12f) : pink_second;
         gradient_rect(x, y, width, 28, blend(base, hover_start, hover * 0.8f),
                       blend(base, hover_end, hover * 0.8f), 6);
+        if (hold_progress > 0.0f) {
+            d->PushClipRect(p(x, y), p(x + width, y + 28 * hold_progress), true);
+            rect(x, y, width, 28, IM_COL32(255, 255, 255, 42), 6);
+            d->PopClipRect();
+        }
         outline(x, y, width, 28, blend(border, hover_start, hover), 6);
         glyph(icon, x + width / 2, y + 14, 15, blend(icon_color, text, hover * 0.3f));
-        if (hold_progress > 0.0f) {
-            const float inset = 5.0f;
-            gradient_rect(x + inset, y + 25, (width - inset * 2) * hold_progress, 2,
-                          hover_start, hover_end, 1);
-        }
         if (hovered)
             ImGui::SetTooltip("%s", tooltip);
         ImGui::PopID();
