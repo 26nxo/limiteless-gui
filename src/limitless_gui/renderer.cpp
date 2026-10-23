@@ -506,7 +506,7 @@ struct Canvas {
         if (width <= 0)
             return;
         const float inset = std::min(5.0f, width / 2);
-        const float radius = std::min(2.0f, inset * 0.65f);
+        const float radius = std::min(3.0f, inset * 0.7f);
         rect(x, center_y - 5, width, 10, pink, 5);
         if (range)
             circle(x + inset, center_y, radius, IM_COL32(53, 24, 36, 255));
