@@ -22,6 +22,7 @@ ImU32 blend(ImU32 first, ImU32 second, float t) {
 struct Canvas {
     ImDrawList *d;
     ImFont *font;
+    ImFont *regular;
     ImVec2 origin;
     float scale;
     ImFont *icon_font;
@@ -83,7 +84,7 @@ struct Canvas {
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const bool clicked = ImGui::InvisibleButton(caption, {486 * scale, 24 * scale});
         const ImU32 color = ImGui::IsItemHovered() ? IM_COL32(255, 255, 255, 255) : selected ? pink : muted;
-        ImGui::GetWindowDrawList()->AddText(font, 14 * scale, {pos.x, pos.y + 5 * scale}, tint(color), caption);
+        ImGui::GetWindowDrawList()->AddText(regular, 14 * scale, {pos.x, pos.y + 5 * scale}, tint(color), caption);
         return clicked;
     }
     bool combo(const char *id, const char *name, float y, int &selected, const char *const *options,
@@ -442,17 +443,19 @@ struct Canvas {
         ImGui::PopID();
     }
     void text_input(const char *id, const char *name, float y, std::string &value) {
-        label(225, y, name, 17, muted);
+        label(225, y, name, 14, muted);
         ImGui::PushID(id);
-        ImGui::SetCursorScreenPos(p(225, y + 27));
+        ImGui::SetCursorScreenPos(p(225, y + 22));
         ImGui::SetNextItemWidth(514 * scale);
         ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(26, 26, 26, 255));
         ImGui::PushStyleColor(ImGuiCol_Text, text);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {13 * scale, 10 * scale});
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {9 * scale, 6 * scale});
+        ImGui::PushFont(regular);
         std::array<char, 128> buffer{};
         std::snprintf(buffer.data(), buffer.size(), "%s", value.c_str());
         if (ImGui::InputText("##value", buffer.data(), buffer.size()))
             value = buffer.data();
+        ImGui::PopFont();
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(2);
         ImGui::PopID();
@@ -663,6 +666,10 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &) {
         font_ = io.Fonts->AddFontDefault();
     static constexpr ImWchar ranges[] = {0xf000, 0xf8ff, 0};
     icons_ = io.Fonts->AddFontFromFileTTF(icon_file.string().c_str(), 22, &config, ranges);
+    const auto regular_file = std::filesystem::path(path).parent_path() / "PreviewSans-Regular.ttf";
+    regular_ = std::filesystem::exists(regular_file)
+                   ? io.Fonts->AddFontFromFileTTF(regular_file.string().c_str(), 14, &config)
+                   : font_;
     tweens_.clear();
     springs_.clear();
     scroll_targets_.clear();
@@ -702,7 +709,7 @@ void Interface::render(State &s) {
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove |
                      ImGuiWindowFlags_NoSavedSettings |
                      (s.visible ? ImGuiWindowFlags_None : ImGuiWindowFlags_NoInputs));
-    Canvas c{ImGui::GetWindowDrawList(), font_, origin, scale, icons_, tweens_, springs_,
+    Canvas c{ImGui::GetWindowDrawList(), font_, regular_, origin, scale, icons_, tweens_, springs_,
              scroll_targets_, scroll_animations_, range_handles_, color_hues_, hex_buffers_};
     c.rect(1, 3, 770, 622, bg, 18);
     c.label(695, 6, "limitless gui", 16, muted);

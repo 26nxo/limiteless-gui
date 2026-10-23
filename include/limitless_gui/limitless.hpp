@@ -35,6 +35,7 @@ class Interface {
 
   private:
     ImFont *font_ = nullptr;
+    ImFont *regular_ = nullptr;
     ImFont *icons_ = nullptr;
     std::map<ImGuiID, Animation> tweens_;
     std::map<ImGuiID, Spring> springs_;

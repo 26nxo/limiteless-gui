@@ -57,7 +57,7 @@ int main() {
     unsigned char *pixels;
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-    require(io.Fonts->Fonts.Size == 2, "icon font was not loaded");
+    require(io.Fonts->Fonts.Size == 3, "preview fonts were not loaded");
     for (ImWchar glyph : {0xf140, 0xf21d, 0xf70c, 0xf06e, 0xf121, 0xf234, 0xf0c2, 0xf1de, 0xf002, 0xf013,
                           0xf00d, 0xf11c, 0xf078, 0xf067, 0xf068})
         require(io.Fonts->Fonts[1]->FindGlyphNoFallback(glyph) != nullptr, "font awesome glyph is missing");

@@ -1,6 +1,7 @@
 source: https://github.com/rsms/inter/tree/v4.1
 file: docs/font-files/InterVariable.ttf
 preview sans is an inter derivative instantiated at weight 600 using fonttools.
+preview sans regular is instantiated at weight 400 and optical size 14 using fonttools.
 the family was renamed to respect the reserved font name.
 license: SIL Open Font License 1.1, see LICENSE.txt.
 
