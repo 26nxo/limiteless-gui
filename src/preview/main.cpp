@@ -151,8 +151,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
             const std::wstring_view option(arguments[arg]);
             if (option == L"--category") {
                 const std::wstring_view value(arguments[++arg]);
-                constexpr std::wstring_view categories[] = {L"settings", L"configs"};
-                for (int i = 0; i < 2; ++i) {
+                constexpr std::wstring_view categories[] = {L"combat", L"player",  L"move",    L"visuals",
+                                                            L"misc",   L"friends", L"configs", L"settings"};
+                for (int i = 0; i < 8; ++i) {
                     if (value == categories[i]) {
                         state.category = static_cast<limitless_gui::Category>(i);
                         break;

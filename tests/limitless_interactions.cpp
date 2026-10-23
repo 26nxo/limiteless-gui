@@ -59,7 +59,7 @@ int main() {
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
     require(io.Fonts->Fonts.Size == 3, "preview fonts were not loaded");
-    for (ImWchar glyph : {0xf0c2, 0xf1de, 0xf067, 0xf068})
+    for (ImWchar glyph : {0xf140, 0xf21d, 0xf70c, 0xf06e, 0xf121, 0xf234, 0xf0c2, 0xf1de, 0xf067, 0xf068})
         require(io.Fonts->Fonts[1]->FindGlyphNoFallback(glyph) != nullptr, "font awesome glyph is missing");
     auto frame = [&]() {
         ImGui::NewFrame();
@@ -100,7 +100,7 @@ int main() {
     require(alpha > 0.05f && alpha < 0.95f, "accent opacity did not update");
     click(400, 350);
     require(!state.settings.accent_open, "accent color picker did not close");
-    click(80, 118);
+    click(80, 366);
     require(state.category == limitless_gui::Category::Configs, "configs category did not open");
     click(400, 170);
     io.AddInputCharactersUTF8("pvp");
@@ -112,33 +112,33 @@ int main() {
     require(state.configs.name.empty(), "config name was not cleared");
     click(690, 265);
     require(state.configs.entries.empty(), "config removal failed");
-    click(80, 68);
+    click(80, 416);
     require(state.category == limitless_gui::Category::Settings, "settings category did not open");
     io.AddMousePosEvent(80, 68);
     frame();
     io.AddMouseButtonEvent(0, true);
     frame();
-    io.AddMousePosEvent(80, 118);
+    io.AddMousePosEvent(80, 222);
     frame();
-    require(state.category == limitless_gui::Category::Configs, "category drag did not select configs");
-    io.AddMousePosEvent(350, 118);
+    require(state.category == limitless_gui::Category::Visuals, "category drag did not select visuals");
+    io.AddMousePosEvent(350, 222);
     frame();
-    require(state.category == limitless_gui::Category::Configs, "drag outside sidebar changed category");
+    require(state.category == limitless_gui::Category::Visuals, "drag outside sidebar changed category");
     io.AddMousePosEvent(80, 68);
     frame();
-    require(state.category == limitless_gui::Category::Settings, "reverse drag did not select settings");
+    require(state.category == limitless_gui::Category::Combat, "reverse drag did not select combat");
     io.AddMouseButtonEvent(0, false);
     frame();
     io.DisplaySize = {1158, 938};
     frame();
     require(ImGui::GetDrawData()->TotalVtxCount > 0, "resized renderer produced no geometry");
-    io.AddMousePosEvent(120, 176);
+    io.AddMousePosEvent(120, 102);
     frame();
     io.AddMouseButtonEvent(0, true);
     frame();
-    io.AddMousePosEvent(120, 102);
+    io.AddMousePosEvent(120, 333);
     frame();
-    require(state.category == limitless_gui::Category::Settings, "category drag failed at 150 percent scale");
+    require(state.category == limitless_gui::Category::Visuals, "category drag failed at 150 percent scale");
     io.AddMouseButtonEvent(0, false);
     frame();
     io.AddKeyEvent(ImGuiKey_Insert, true);

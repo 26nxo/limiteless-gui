@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace limitless_gui {
-enum class Category { Settings, Configs };
+enum class Category { Combat, Player, Move, Visuals, Misc, Friends, Configs, Settings };
 
 struct SettingsState {
     int theme = 0;
@@ -42,6 +42,7 @@ class Interface {
     std::map<ImGuiID, Spring> springs_;
     std::map<ImGuiID, float> scroll_targets_;
     std::map<ImGuiID, Animation> scroll_animations_;
+    std::map<ImGuiID, int> range_handles_;
     std::map<ImGuiID, float> color_hues_;
     std::map<ImGuiID, std::array<char, 8>> hex_buffers_;
     Animation entrance_;
@@ -49,7 +50,7 @@ class Interface {
     Animation content_slide_;
     Spring category_y_;
     Spring category_width_;
-    Category previous_category_ = Category::Settings;
+    Category previous_category_ = Category::Combat;
     bool content_initialized_ = false;
 };
 } // namespace limitless_gui

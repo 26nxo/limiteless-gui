@@ -16,13 +16,13 @@ run `build/Release/limitless_gui.exe` with its `assets` folder alongside it.
 
 ## preview
 
-the sidebar has two direct pages: settings and configs. select either one to see its controls, edit config names, and create or remove saved entries. press insert to fade the menu in or out.
+the sidebar keeps all categories. modules were removed, so only settings and configs show content; the other categories open empty. settings and configs use the custom combobox, slider, toggle, color picker, text input, and button widgets. press insert to fade the menu in or out.
 
-use `--category settings` or `--category configs` to choose the opening page. add `--screenshot capture.bmp` to save a settled frame and exit.
+use `--category combat`, `--category configs`, or another category name to choose the opening page. add `--screenshot capture.bmp` to save a settled frame and exit.
 
 ## references
 
-the updated video in `references/` supplies the palette, typography, sidebar, footer, and control styling. modules were removed on request, leaving only settings and configs, so the menu is not a pixel-exact reproduction of the reference.
+the updated video in `references/` supplies the palette, typography, sidebar, footer, and control styling. removing modules changes the reference layout, so the menu is not a pixel-exact reproduction.
 
 ## embedding
 

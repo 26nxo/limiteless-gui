@@ -29,6 +29,7 @@ struct Canvas {
     std::map<ImGuiID, Spring> &springs;
     std::map<ImGuiID, float> &scroll_targets;
     std::map<ImGuiID, Animation> &scroll_animations;
+    std::map<ImGuiID, int> &range_handles;
     std::map<ImGuiID, float> &color_hues;
     std::map<ImGuiID, std::array<char, 8>> &hex_buffers;
     ImU32 tint(ImU32 color) const {
@@ -133,6 +134,24 @@ struct Canvas {
         ImGui::PopID();
         return clicked;
     }
+    bool checkbox(const char *id, const char *caption, float x, float y, bool &value) {
+        ImGui::PushID(id);
+        const bool clicked = hit("box", x, y, 22, 22);
+        if (clicked)
+            value = !value;
+        const float checked = animate("checked", value ? 1.0f : 0.0f, 0.14f, Easing::Smoothstep);
+        const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.10f,
+                                    Easing::Smoothstep);
+        rect(x, y, 22, 22, blend(IM_COL32(27, 27, 27, 255), IM_COL32(37, 37, 37, 255), hover), 5);
+        outline(x, y, 22, 22, blend(border, pink, checked), 5);
+        if (checked > 0.01f) {
+            line(x + 5, y + 11, x + 9, y + 15, pink, 2);
+            line(x + 9, y + 15, x + 17, y + 6, pink, 2);
+        }
+        label(x + 32, y + 2, caption, 17, value ? text : muted);
+        ImGui::PopID();
+        return clicked;
+    }
     void numeric_value(const char *id, float x, float y, float width, float &value,
                        float minimum, float maximum, const char *format) {
         ImGui::PushID(id);
@@ -165,6 +184,44 @@ struct Canvas {
             right(x + width, y, buffer, 13, muted);
         }
         storage->SetBool(editing_id, editing);
+        ImGui::PopID();
+    }
+    void range_slider(const char *id, const char *caption, float y, std::array<float, 2> &range,
+                      float maximum, bool compact = false) {
+        ImGui::PushID(id);
+        label(225, y, caption);
+        if (!compact)
+            right(739, y, "range", 13, muted);
+        hit("track", 249, y + 17, 464, 20);
+        const ImGuiID range_id = ImGui::GetItemID();
+        const bool track_active = ImGui::IsItemActive();
+        const bool track_activated = ImGui::IsItemActivated();
+        if (track_activated) {
+            const float mouse_value = std::clamp(
+                ((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464.0f * maximum, 0.0f, maximum);
+            range_handles[range_id] = std::abs(mouse_value - range[0]) < std::abs(mouse_value - range[1]) ? 0 : 1;
+        }
+        if (track_active) {
+            const float ratio = std::clamp(((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464.0f,
+                                           0.0f, 1.0f);
+            const float value = ratio * maximum;
+            const int index = range_handles[range_id];
+            range[index] = std::clamp(value, 0.0f, maximum);
+            if (index == 0)
+                range[0] = std::min(range[0], range[1]);
+            else
+                range[1] = std::max(range[0], range[1]);
+        }
+        if (!track_active)
+            range_handles.erase(range_id);
+        const float first = std::clamp(range[0] / maximum, 0.0f, 1.0f);
+        const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
+        rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
+        slider_fill(249 + 464 * first, y + 25, 464 * (second - first), true);
+        const float value_y = compact ? y : y + 37;
+        numeric_value("lower", 613, value_y, 54, range[0], 0, range[1], compact ? "%.1f" : "%.0f");
+        label(675, value_y, "-", 13, muted);
+        numeric_value("upper", 685, value_y, 54, range[1], range[0], maximum, compact ? "%.1f" : "%.0f");
         ImGui::PopID();
     }
     float color_picker(const char *id, const char *caption, float y, std::array<float, 4> &color,
@@ -342,6 +399,48 @@ struct Canvas {
         ImGui::PopID();
         return 36;
     }
+    void multi_combo(const char *id, const char *caption, float y, std::vector<bool> &selected,
+                     const char *const *options, int count) {
+        ImGui::PushID(id);
+        selected.resize(count, false);
+        std::string summary;
+        for (int i = 0; i < count; ++i)
+            if (selected[i]) {
+                if (!summary.empty())
+                    summary += ", ";
+                summary += options[i];
+            }
+        if (summary.empty())
+            summary = "None";
+        const bool clicked = hit("field", 225, y, 514, 38);
+        const bool open = ImGui::IsPopupOpen(id);
+        rect(225, y, 514, 38, IM_COL32(22, 22, 22, 255), 6);
+        outline(225, y, 514, 38, border, 6);
+        label(238, y + 11, caption, 15, text);
+        d->PushClipRect(p(405, y), p(700, y + 38), true);
+        right(699, y + 11, summary.c_str(), 15, text);
+        d->PopClipRect();
+        line(707, y + 8, 707, y + 30, border, 1);
+        const float direction = open ? -1.0f : 1.0f;
+        line(718, y + 19 - direction * 3, 723, y + 19 + direction * 3, muted, 1.5f);
+        line(723, y + 19 + direction * 3, 728, y + 19 - direction * 3, muted, 1.5f);
+        if (clicked)
+            ImGui::OpenPopup(id);
+        ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(16, 16, 16, 255));
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(16, 16, 16, 255));
+        if (begin_popup(id, 225, y + 40, 514, count * 24.0f + 16)) {
+            ImGui::SetWindowFontScale(0.70f * scale);
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 0});
+            for (int i = 0; i < count; ++i) {
+                if (combo_option(options[i], selected[i]))
+                    selected[i] = !selected[i];
+            }
+            ImGui::PopStyleVar();
+            end_popup();
+        }
+        ImGui::PopStyleColor(2);
+        ImGui::PopID();
+    }
     void text_input(const char *id, const char *name, float y, std::string &value) {
         label(225, y, name, 14, muted);
         ImGui::PushID(id);
@@ -449,7 +548,9 @@ struct Canvas {
         d->AddText(icon_font, size * scale, p(x - width / 2, y - size / 2), tint(color), icon);
     }
     void icon(Category category, float x, float y, ImU32 c) {
-        glyph(category == Category::Settings ? icons::sliders : icons::cloud, x, y, 22, c);
+        constexpr const char *symbols[] = {icons::bullseye, icons::street_view, icons::running, icons::eye,
+                                           icons::code,     icons::user_plus,   icons::cloud,   icons::sliders};
+        glyph(symbols[static_cast<int>(category)], x, y, 22, c);
     }
 };
 constexpr const char *themes[] = {"Dark", "Midnight", "Light"};
@@ -529,6 +630,7 @@ bool Interface::initialize(const char *path, const char *icon_path) {
     springs_.clear();
     scroll_targets_.clear();
     scroll_animations_.clear();
+    range_handles_.clear();
     color_hues_.clear();
     hex_buffers_.clear();
     entrance_.reset(0);
@@ -560,14 +662,16 @@ void Interface::render(State &s) {
                      ImGuiWindowFlags_NoSavedSettings |
                      (s.visible ? ImGuiWindowFlags_None : ImGuiWindowFlags_NoInputs));
     Canvas c{ImGui::GetWindowDrawList(), font_, regular_, origin, scale, icons_, tweens_, springs_,
-             scroll_targets_, scroll_animations_, color_hues_, hex_buffers_};
+             scroll_targets_, scroll_animations_, range_handles_, color_hues_, hex_buffers_};
     c.rect(1, 3, 770, 622, bg, 18);
     c.right(758, 7, "timewarp", 14, muted);
     const ImU32 logo = IM_COL32(48, 48, 48, 255);
     c.glyph("\xef\x89\x94", 89, 586, 66, logo);
-    constexpr Category categories[] = {Category::Settings, Category::Configs};
-    constexpr const char *names[] = {"Settings", "Configs"};
-    constexpr int category_count = 2;
+    constexpr Category categories[] = {Category::Combat, Category::Player,  Category::Move,    Category::Visuals,
+                                       Category::Misc,   Category::Friends, Category::Configs, Category::Settings};
+    constexpr const char *names[] = {"Combat", "Player",  "Move",    "Visuals",
+                                     "Misc",   "Friends", "Configs", "Settings"};
+    constexpr int category_count = 8;
     c.hit("category_navigation", 14, 47, 154, category_count * 49.7f);
     const bool dragging_category = ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left);
     for (int i = 0; i < category_count; ++i) {
@@ -618,7 +722,7 @@ void Interface::render(State &s) {
     c.origin.x += content_slide_.update(0, dt, 0.22f, false, Easing::ExpoOut) * scale;
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * content_alpha);
     ImGui::PushID(static_cast<int>(s.category));
-    const char *title = s.category == Category::Settings ? "Settings" : "Configs";
+    const char *title = names[static_cast<int>(s.category)];
     c.label(224, 62, title, 22);
     c.line(225, 110, 739, 110, IM_COL32(31, 31, 31, 255), 1);
     ImGui::SetCursorScreenPos(c.p(210, 124));
@@ -630,8 +734,10 @@ void Interface::render(State &s) {
     c.origin.y -= ImGui::GetScrollY();
     if (s.category == Category::Settings)
         settings_page(c, s.settings);
-    else
+    else if (s.category == Category::Configs)
         configs_page(c, s.configs);
+    else
+        c.label(225, 320, "No modules", 15, muted);
     ImGui::EndChild();
     ImGui::PopID();
     ImGui::PopStyleVar();
