@@ -1185,7 +1185,7 @@ void Interface::render(State &s) {
     Canvas c{ImGui::GetWindowDrawList(), font_, regular_, origin, scale, icons_, animations, tweens_,
              springs_, scroll_targets_, scroll_animations_, range_handles_, color_hues_, hex_buffers_};
     c.rect(1, 3, 770, 622, bg, 18);
-    c.right(758, 7, "timewarp", 14, muted);
+    c.right(758, 7, "limitless", 14, muted);
     const ImU32 logo = blend(bg, text, 0.1f);
     c.glyph("\xef\x89\x94", 89, 586, 66, logo);
     constexpr Category categories[] = {Category::Combat, Category::Player,  Category::Move,    Category::Visuals,
