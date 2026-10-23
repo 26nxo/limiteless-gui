@@ -224,7 +224,8 @@ struct Canvas {
         ImGui::PushID(id);
         const bool clicked = hit("button", x, y, width, 28);
         const bool hovered = hoverable && ImGui::IsItemHovered();
-        const float hover = animate("hover", hovered ? 1.0f : 0.0f, 0.12f, Easing::Smoothstep);
+        const float hover =
+            hoverable ? animate("hover", hovered ? 1.0f : 0.0f, 0.12f, Easing::Smoothstep) : 0.0f;
         const ImU32 base = blend(panel, text, 0.08f);
         const ImU32 icon_color = tint ? tint : muted;
         const ImU32 hover_start = tint ? tint : pink;
@@ -956,13 +957,14 @@ void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
         c.label(233, y + 9, entry.name.c_str(), 15, text);
         c.d->PopClipRect();
         const auto index = std::to_string(i);
-        if (c.icon_button(("load_" + index).c_str(), icons::upload, "Load", 603, y + 3, 40))
+        if (c.icon_button(("load_" + index).c_str(), icons::upload, "Load", 603, y + 3, 40, 0, false))
             load_settings(settings, entry.settings);
-        if (c.icon_button(("save_" + index).c_str(), icons::download, "Save", 651, y + 3, 40)) {
+        if (c.icon_button(("save_" + index).c_str(), icons::download, "Save", 651, y + 3, 40, 0, false)) {
             entry.settings = snapshot_settings(settings);
             write_config_file(entry);
         }
-        if (c.icon_button(("delete_" + index).c_str(), icons::trash, "Delete", 699, y + 3, 40, danger))
+        if (c.icon_button(("delete_" + index).c_str(), icons::trash, "Delete", 699, y + 3, 40, danger,
+                          false))
             remove = i;
         y += 42;
     }
