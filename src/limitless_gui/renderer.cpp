@@ -230,6 +230,7 @@ struct Canvas {
         const float hover =
             hoverable ? animate("hover", hovered ? 1.0f : 0.0f, 0.12f, Easing::Smoothstep) : 0.0f;
         float hold_progress = 0.0f;
+        float hold_line_alpha = 1.0f;
         bool triggered = false;
         if (hold_seconds > 0.0f) {
             auto *storage = ImGui::GetStateStorage();
@@ -251,6 +252,8 @@ struct Canvas {
             storage->SetFloat(held_id, held);
             storage->SetBool(fired_id, fired);
             hold_progress = fired ? 1.0f : std::clamp(held / hold_seconds, 0.0f, 1.0f);
+            hold_line_alpha =
+                animate("hold_fade", fired ? 0.0f : 1.0f, 0.28f, Easing::Smoothstep);
         }
         const ImU32 base = blend(panel, text, 0.08f);
         const ImU32 icon_color = accent ? accent : muted;
@@ -260,8 +263,14 @@ struct Canvas {
         const float hold_mix = hold_progress * 0.18f;
         gradient_rect(x, y, width, 28, blend(blend(base, hover_start, hover * 0.8f), hover_start, hold_mix),
                       blend(blend(base, hover_end, hover * 0.8f), hover_end, hold_mix), corner);
-        outline(x, y, width, 28, blend(border, hover_start, hover + hold_progress * 0.35f), corner);
-        outline_progress(x, y, width, 28, corner, hold_progress, hover_start);
+        outline(x, y, width, 28,
+                blend(border, hover_start, hover + hold_progress * 0.35f * hold_line_alpha), corner);
+        if (hold_progress > 0.0f && hold_line_alpha > 0.001f) {
+            ImVec4 trace = ImGui::ColorConvertU32ToFloat4(hover_start);
+            trace.w *= hold_line_alpha;
+            outline_progress(x, y, width, 28, corner, hold_progress,
+                             ImGui::ColorConvertFloat4ToU32(trace));
+        }
         glyph(icon, x + width / 2, y + 14, 15,
               blend(icon_color, text, std::max(hover * 0.3f, hold_progress * 0.6f)));
         if (hovered)
