@@ -79,6 +79,13 @@ struct Canvas {
         ImGui::EndPopup();
         ImGui::PopStyleVar(2);
     }
+    bool combo_option(const char *caption, bool selected) {
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const bool clicked = ImGui::InvisibleButton(caption, {486 * scale, 24 * scale});
+        const ImU32 color = ImGui::IsItemHovered() ? IM_COL32(255, 255, 255, 255) : selected ? pink : muted;
+        ImGui::GetWindowDrawList()->AddText(font, 14 * scale, {pos.x, pos.y + 5 * scale}, tint(color), caption);
+        return clicked;
+    }
     bool combo(const char *id, const char *name, float y, int &selected, const char *const *options,
                int count) {
         ImGui::PushID(id);
@@ -99,17 +106,14 @@ struct Canvas {
             ImGui::OpenPopup(id);
         ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(16, 16, 16, 255));
         ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(16, 16, 16, 255));
-        if (begin_popup(id, 225, y + 40, 514, count * 30.0f + 16)) {
+        if (begin_popup(id, 225, y + 40, 514, count * 24.0f + 16)) {
             ImGui::SetWindowFontScale(0.70f * scale);
-            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 4 * scale});
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 0});
             for (int i = 0; i < count; ++i) {
-                ImGui::PushStyleColor(ImGuiCol_Text, i == selected ? pink : muted);
-                if (ImGui::Selectable(options[i], i == selected, ImGuiSelectableFlags_DontClosePopups,
-                                      {486 * scale, 26 * scale})) {
+                if (combo_option(options[i], i == selected)) {
                     selected = i;
                     ImGui::CloseCurrentPopup();
                 }
-                ImGui::PopStyleColor();
             }
             ImGui::PopStyleVar();
             end_popup();
@@ -424,15 +428,12 @@ struct Canvas {
             ImGui::OpenPopup(id);
         ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(16, 16, 16, 255));
         ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(16, 16, 16, 255));
-        if (begin_popup(id, 225, y + 40, 514, count * 30.0f + 16)) {
+        if (begin_popup(id, 225, y + 40, 514, count * 24.0f + 16)) {
             ImGui::SetWindowFontScale(0.70f * scale);
-            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 4 * scale});
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 0});
             for (int i = 0; i < count; ++i) {
-                ImGui::PushStyleColor(ImGuiCol_Text, selected[i] ? pink : muted);
-                if (ImGui::Selectable(options[i], selected[i], ImGuiSelectableFlags_DontClosePopups,
-                                      {486 * scale, 26 * scale}))
+                if (combo_option(options[i], selected[i]))
                     selected[i] = !selected[i];
-                ImGui::PopStyleColor();
             }
             ImGui::PopStyleVar();
             end_popup();
