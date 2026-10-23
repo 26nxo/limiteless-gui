@@ -120,13 +120,13 @@ struct Canvas {
     }
     bool button(const char *id, const char *caption, float x, float y, float width = 160) {
         ImGui::PushID(id);
-        const bool clicked = hit("button", x, y, width, 38);
+        const bool clicked = hit("button", x, y, width, 28);
         const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
-        rect(x, y, width, 38, blend(IM_COL32(34, 34, 34, 255), pink, hover * 0.8f), 7);
-        outline(x, y, width, 38, blend(border, pink, hover), 7);
-        const float text_width = font->CalcTextSizeA(16 * scale, 10000, 0, caption).x / scale;
-        label(x + (width - text_width) / 2, y + 10, caption, 16, hover > 0.5f ? text : muted);
+        rect(x, y, width, 28, blend(IM_COL32(34, 34, 34, 255), pink, hover * 0.8f), 6);
+        outline(x, y, width, 28, blend(border, pink, hover), 6);
+        const float text_width = font->CalcTextSizeA(13, 10000, 0, caption).x;
+        label(x + (width - text_width) / 2, y + 7, caption, 13, hover > 0.5f ? text : muted);
         ImGui::PopID();
         return clicked;
     }
@@ -147,6 +147,40 @@ struct Canvas {
         label(x + 32, y + 2, caption, 17, value ? text : muted);
         ImGui::PopID();
         return clicked;
+    }
+    void numeric_value(const char *id, float x, float y, float width, float &value,
+                       float minimum, float maximum, const char *format) {
+        ImGui::PushID(id);
+        auto *storage = ImGui::GetStateStorage();
+        const ImGuiID editing_id = ImGui::GetID("editing");
+        bool editing = storage->GetBool(editing_id);
+        bool focus = false;
+        if (!editing) {
+            hit("value", x, y, width, 18);
+            focus = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+            editing = focus;
+        }
+        if (editing) {
+            ImGui::SetCursorScreenPos(p(x, y));
+            ImGui::SetNextItemWidth(width * scale);
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {3 * scale, 0});
+            if (focus)
+                ImGui::SetKeyboardFocusHere();
+            const bool submitted = ImGui::InputFloat("##number", &value, 0, 0, format,
+                                                     ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+            if (!std::isfinite(value))
+                value = minimum;
+            value = std::clamp(value, minimum, maximum);
+            if (submitted || ImGui::IsItemDeactivated() || ImGui::IsKeyPressed(ImGuiKey_Escape))
+                editing = false;
+            ImGui::PopStyleVar();
+        } else {
+            char buffer[48];
+            std::snprintf(buffer, sizeof(buffer), format, value);
+            right(x + width, y, buffer, 13, muted);
+        }
+        storage->SetBool(editing_id, editing);
+        ImGui::PopID();
     }
     void range_slider(const char *id, const char *caption, float y, std::array<float, 2> &range,
                       float maximum) {
@@ -179,9 +213,11 @@ struct Canvas {
         const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
         rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
         rect(249 + 464 * first, y + 20, 464 * (second - first), 10, pink, 5);
-        char values[48];
-        std::snprintf(values, sizeof(values), "%.0f - %.0f", range[0], range[1]);
-        right(739, y + 29, values, 13, muted);
+        circle(249 + 464 * first, y + 25, 3, IM_COL32(53, 24, 36, 255));
+        circle(249 + 464 * second, y + 25, 3, IM_COL32(53, 24, 36, 255));
+        numeric_value("lower", 613, y + 37, 54, range[0], 0, range[1], "%.0f");
+        label(675, y + 37, "-", 13, muted);
+        numeric_value("upper", 685, y + 37, 54, range[1], range[0], maximum, "%.0f");
         ImGui::PopID();
     }
     float color_picker(const char *id, const char *caption, float y, std::array<float, 4> &color,
@@ -464,11 +500,9 @@ struct Canvas {
     }
     void slider(const char *id, const char *name, float y, float &value, float maximum, float step,
                 const char *format) {
-        char buffer[48];
-        std::snprintf(buffer, sizeof(buffer), format, value);
         label(225, y, name);
-        right(739, y, buffer);
         ImGui::PushID(id);
+        numeric_value("number", 675, y - 2, 64, value, 0, maximum, format);
         if (hit("minus", 224, y + 16, 22, 22))
             value = std::max(0.0f, value - step);
         const float minus_hover = animate("minus_hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.10f,
@@ -499,6 +533,7 @@ struct Canvas {
             const float w = 464 * display;
             rect(249, y + 25 - height / 2, w, height, pink, height / 2);
         }
+        circle(249 + 464 * display, y + 25, 3, IM_COL32(53, 24, 36, 255));
         ImGui::PopID();
     }
     void glyph(const char *icon, float x, float y, float size, ImU32 color) {
@@ -576,7 +611,7 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &) {
     auto [profile, profile_inserted] = state.texts.try_emplace("Profile name", "limitless gui");
     c.text_input("profile", "Profile name", y, profile->second);
     y += 72;
-    if (c.button("reset", "Reset values", 225, y, 160)) {
+    if (c.button("reset", "Reset values", 225, y, 102)) {
         state.choices.clear();
         state.numbers.clear();
         state.switches.clear();
@@ -585,7 +620,7 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &) {
         state.colors.clear();
         state.multi_choices.clear();
     }
-    c.button("secondary", "Secondary", 397, y, 160);
+    c.button("secondary", "Secondary", 335, y, 92);
     y += 58;
     section("Custom preview");
     c.rect(225, y, 514, 38, IM_COL32(26, 26, 26, 255), 7);

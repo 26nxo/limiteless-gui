@@ -94,6 +94,17 @@ int main() {
     click(730, 381);
     require(state.modules["Widget Gallery"].numbers["Accent strength"] > 0.72f,
             "custom slider increment failed");
+    click(710, 360);
+    click(710, 360);
+    frame();
+    io.AddInputCharactersUTF8("0.35");
+    frame();
+    io.AddKeyEvent(ImGuiKey_Enter, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Enter, false);
+    frame();
+    require(std::abs(state.modules["Widget Gallery"].numbers["Accent strength"] - 0.35f) < 0.001f,
+            "slider numeric editing failed");
     click(695, 430);
     require(state.modules["Widget Gallery"].switches["Enable animations"],
             "custom toggle interaction failed");
@@ -103,6 +114,17 @@ int main() {
     click(700, 559);
     require(state.modules["Widget Gallery"].ranges["Visible range"][1] > 75,
             "double slider interaction failed");
+    click(710, 580);
+    click(710, 580);
+    frame();
+    io.AddInputCharactersUTF8("60");
+    frame();
+    io.AddKeyEvent(ImGuiKey_Enter, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Enter, false);
+    frame();
+    require(state.modules["Widget Gallery"].ranges["Visible range"][1] == 60,
+            "range numeric editing failed");
     io.AddMousePosEvent(400, 420);
     frame();
     io.AddMouseWheelEvent(0, -8);
