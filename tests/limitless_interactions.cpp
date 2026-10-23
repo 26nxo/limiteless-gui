@@ -179,17 +179,17 @@ int main() {
     limitless_gui::load_configs(state.configs);
     require(state.configs.entries.size() == 1, "config file was not saved");
     state.settings.theme = 0;
-    click(623, 312);
+    click(615, 312);
     require(state.settings.theme == 1, "config load failed");
     state.settings.theme = 2;
-    click(671, 312);
+    click(663, 312);
     limitless_gui::load_configs(state.configs);
     require(state.configs.entries.size() == 1 && state.configs.entries[0].settings.theme == 2,
             "config save was not persisted");
     state.settings.theme = 0;
-    click(623, 312);
+    click(615, 312);
     require(state.settings.theme == 2, "config save failed");
-    click(719, 312);
+    click(711, 312);
     limitless_gui::load_configs(state.configs);
     require(state.configs.entries.empty(), "config deletion failed");
 
