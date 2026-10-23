@@ -18,7 +18,10 @@ struct SettingsState {
     ImGuiKey menu_key = ImGuiKey_Insert;
     bool binding_key = false;
     std::array<float, 4> accent{0.92f, 0.25f, 0.47f, 1.0f};
+    std::array<float, 4> accent_secondary{0.55f, 0.36f, 0.95f, 1.0f};
+    bool accent_gradient = false;
     bool accent_open = false;
+    bool accent_secondary_open = false;
 };
 
 struct ConfigEntry {

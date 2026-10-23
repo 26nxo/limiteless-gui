@@ -53,6 +53,7 @@ int main() {
     limitless_gui::State state;
     require(state.category == limitless_gui::Category::Settings, "settings page did not open by default");
     require(state.settings.show_profile, "profile is hidden by default");
+    require(!state.settings.accent_gradient, "gradient accent is enabled by default");
     require(state.settings.menu_key == ImGuiKey_Insert, "default menu key is wrong");
     require(ui.initialize(LIMITLESS_GUI_TEST_FONT), "font initialization failed");
     auto &io = ImGui::GetIO();
@@ -111,20 +112,37 @@ int main() {
     click(400, 350);
     require(!state.settings.accent_open, "accent color picker did not close");
 
+    click(717, 261);
+    require(state.settings.accent_gradient, "gradient accent toggle failed");
+    frame();
+    click(717, 301);
+    require(state.settings.accent_secondary_open, "second accent color picker did not open");
+    const auto previous_secondary = state.settings.accent_secondary;
+    click(600, 400);
+    require(std::abs(state.settings.accent_secondary[0] - previous_secondary[0]) > 0.01f ||
+                std::abs(state.settings.accent_secondary[1] - previous_secondary[1]) > 0.01f ||
+                std::abs(state.settings.accent_secondary[2] - previous_secondary[2]) > 0.01f,
+            "second accent color field did not update the color");
+    click(400, 600);
+    require(!state.settings.accent_secondary_open, "second accent color picker did not close");
+    click(717, 261);
+    require(!state.settings.accent_gradient, "gradient accent toggle did not disable");
+    require(!state.settings.accent_secondary_open, "hidden accent picker stayed open");
+
     const float previous_scale = state.settings.scale;
-    click(235, 276);
+    click(235, 316);
     require(state.settings.scale < previous_scale, "menu scale decrement failed");
     state.settings.scale = 1.0f;
     frame();
 
-    click(717, 311);
+    click(717, 351);
     require(!state.settings.animations, "animation toggle failed");
-    click(717, 351);
+    click(717, 391);
     require(!state.settings.show_profile, "profile toggle failed");
-    click(717, 351);
+    click(717, 391);
     require(state.settings.show_profile, "profile toggle did not restore");
 
-    click(700, 438);
+    click(700, 478);
     require(state.settings.binding_key, "menu key binding did not start");
     io.AddKeyEvent(ImGuiKey_F1, true);
     frame();
@@ -132,9 +150,9 @@ int main() {
     frame();
     require(state.settings.menu_key == ImGuiKey_F1, "menu key binding did not update");
 
-    click(717, 477);
+    click(717, 517);
     require(!state.settings.close_on_escape, "close on escape toggle failed");
-    click(717, 477);
+    click(717, 517);
     require(state.settings.close_on_escape, "close on escape toggle did not restore");
 
     click(80, 366);

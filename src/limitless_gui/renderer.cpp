@@ -10,7 +10,8 @@ namespace limitless_gui {
 namespace {
 ImU32 bg = IM_COL32(22, 22, 22, 255), panel = IM_COL32(17, 17, 17, 255);
 ImU32 text = IM_COL32(197, 197, 197, 255), muted = IM_COL32(111, 111, 111, 255);
-ImU32 pink = IM_COL32(222, 73, 119, 255), border = IM_COL32(40, 40, 40, 255);
+ImU32 pink = IM_COL32(222, 73, 119, 255), pink_second = IM_COL32(140, 92, 242, 255),
+      border = IM_COL32(40, 40, 40, 255);
 ImU32 blend(ImU32 first, ImU32 second, float t) {
     const ImVec4 a = ImGui::ColorConvertU32ToFloat4(first);
     const ImVec4 b = ImGui::ColorConvertU32ToFloat4(second);
@@ -42,11 +43,14 @@ void apply_palette(const SettingsState &settings) {
         border = IM_COL32(40, 40, 40, 255);
         break;
     }
-    const auto accent = settings.accent;
-    pink = ImGui::ColorConvertFloat4ToU32({std::clamp(accent[0], 0.0f, 1.0f),
-                                           std::clamp(accent[1], 0.0f, 1.0f),
-                                           std::clamp(accent[2], 0.0f, 1.0f),
-                                           std::clamp(accent[3], 0.0f, 1.0f)});
+    const auto to_color = [](const std::array<float, 4> &value) {
+        return ImGui::ColorConvertFloat4ToU32({std::clamp(value[0], 0.0f, 1.0f),
+                                               std::clamp(value[1], 0.0f, 1.0f),
+                                               std::clamp(value[2], 0.0f, 1.0f),
+                                               std::clamp(value[3], 0.0f, 1.0f)});
+    };
+    pink = to_color(settings.accent);
+    pink_second = settings.accent_gradient ? to_color(settings.accent_secondary) : pink;
     auto &style = ImGui::GetStyle();
     const auto color = [](ImU32 value) { return ImGui::ColorConvertU32ToFloat4(value); };
     const ImU32 popup = blend(panel, text, 0.04f);
@@ -191,7 +195,9 @@ struct Canvas {
         const bool clicked = hit("button", x, y, width, 28);
         const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
-        rect(x, y, width, 28, blend(blend(panel, text, 0.08f), pink, hover * 0.8f), 6);
+        const ImU32 base = blend(panel, text, 0.08f);
+        gradient_rect(x, y, width, 28, blend(base, pink, hover * 0.8f),
+                      blend(base, pink_second, hover * 0.8f), 6);
         outline(x, y, width, 28, blend(border, pink, hover), 6);
         const float text_width = font->CalcTextSizeA(13, 10000, 0, caption).x;
         label(x + (width - text_width) / 2, y + 7, caption, 13,
@@ -531,6 +537,26 @@ struct Canvas {
     void rect(float x, float y, float w, float h, ImU32 c, float r = 0) {
         d->AddRectFilled(p(x, y), p(x + w, y + h), tint(c), r * scale);
     }
+    void gradient_rect(float x, float y, float w, float h, ImU32 first, ImU32 second, float r = 0,
+                       bool vertical = false, ImDrawFlags corners = ImDrawFlags_RoundCornersAll) {
+        if (w <= 0 || h <= 0)
+            return;
+        const int vertex_start = d->VtxBuffer.Size;
+        d->AddRectFilled(p(x, y), p(x + w, y + h), IM_COL32_WHITE, r * scale, corners);
+        const ImVec2 at = p(x, y);
+        const float span = (vertical ? h : w) * scale;
+        if (span <= 0)
+            return;
+        for (int i = vertex_start; i < d->VtxBuffer.Size; ++i) {
+            auto &vertex = d->VtxBuffer[i];
+            const float t = std::clamp(
+                (vertical ? vertex.pos.y - at.y : vertex.pos.x - at.x) / span, 0.0f, 1.0f);
+            const ImU32 color = tint(blend(first, second, t));
+            const ImU32 coverage = (vertex.col >> IM_COL32_A_SHIFT) & 255;
+            vertex.col = (color & ~IM_COL32_A_MASK) |
+                         ((((color >> IM_COL32_A_SHIFT) & 255) * coverage / 255) << IM_COL32_A_SHIFT);
+        }
+    }
     void outline(float x, float y, float w, float h, ImU32 c, float r = 0) {
         d->AddRect(p(x, y), p(x + w, y + h), tint(c), r * scale, 0, scale);
     }
@@ -563,10 +589,12 @@ struct Canvas {
         const float on = animate("on", value ? 1.0f : 0.0f, 0.16f, Easing::Smoothstep);
         const float knob = spring("knob", value ? 1.0f : 0.0f, 650, 40);
         const ImU32 base = blend(panel, text, 0.05f);
-        rect(x, y, 44, 24, blend(blend(base, blend(base, text, 0.04f), hover), pink, on), 12);
+        const ImU32 off = blend(base, blend(base, text, 0.04f), hover);
+        rect(x, y, 44, 24, off, 12);
+        gradient_rect(x, y, 44, 24, blend(off, pink, on), blend(off, pink_second, on), 12);
         outline(x, y, 44, 24, blend(border, blend(border, text, 0.2f), hover * 0.7f), 12);
         circle(x + 12 + 20 * knob, y + 12, 9,
-               blend(blend(base, text, 0.18f), blend(pink, IM_COL32(0, 0, 0, 255), 0.8f), on));
+               blend(blend(base, text, 0.18f), blend(pink_second, IM_COL32(0, 0, 0, 255), 0.8f), on));
         ImGui::PopID();
     }
     void slider_fill(float x, float center_y, float width, bool range = false) {
@@ -574,11 +602,12 @@ struct Canvas {
             return;
         const float inset = std::min(5.0f, width / 2);
         const float radius = std::min(3.0f, inset * 0.7f);
-        rect(x, center_y - 5, width, 10, pink, 5);
+        gradient_rect(x, center_y - 5, width, 10, pink, pink_second, 5);
         const ImU32 handle = blend(pink, IM_COL32(0, 0, 0, 255), 0.75f);
+        const ImU32 end_handle = blend(pink_second, IM_COL32(0, 0, 0, 255), 0.75f);
         if (range)
             circle(x + inset, center_y, radius, handle);
-        circle(x + width - inset, center_y, radius, handle);
+        circle(x + width - inset, center_y, radius, end_handle);
     }
     void slider(const char *id, const char *name, float y, float &value, float minimum, float maximum,
                 float step, const char *format) {
@@ -696,6 +725,7 @@ constexpr const char *themes[] = {"Dark", "Midnight", "Contrast"};
 SettingsState snapshot_settings(const SettingsState &source) {
     auto snapshot = source;
     snapshot.accent_open = false;
+    snapshot.accent_secondary_open = false;
     snapshot.binding_key = false;
     return snapshot;
 }
@@ -712,6 +742,16 @@ void settings_page(Canvas &c, SettingsState &state) {
     y += 48;
     y += c.color_picker("accent", "Accent color", y, state.accent, state.accent_open);
     y += 6;
+    c.label(225, y + 3, "Gradient accent", 17, state.accent_gradient ? text : muted);
+    c.toggle("accent_gradient", 695, y, state.accent_gradient);
+    y += 40;
+    if (!state.accent_gradient)
+        state.accent_secondary_open = false;
+    if (state.accent_gradient) {
+        y += c.color_picker("accent_secondary", "Second accent color", y, state.accent_secondary,
+                            state.accent_secondary_open);
+        y += 6;
+    }
     c.slider("scale", "Menu scale", y, state.scale, 0.75f, 1.0f, 0.05f, "%.2f");
     y += 50;
     c.label(225, y + 3, "Enable animations", 17, state.animations ? text : muted);
@@ -733,9 +773,9 @@ void settings_page(Canvas &c, SettingsState &state) {
     y += 16;
     if (c.button("reset_settings", "Reset settings", 225, y, 170))
         state = SettingsState{};
-    y += 40;
-    c.label(225, y, "Changes apply immediately.", 13, muted);
-    ImGui::SetCursorScreenPos(c.p(225, y + 20));
+    c.label(415, y + 8, "Changes apply immediately.", 13, muted);
+    y += 38;
+    ImGui::SetCursorScreenPos(c.p(225, y));
     ImGui::Dummy({1, 1});
 }
 
@@ -892,7 +932,7 @@ void Interface::render(State &s) {
         animations ? category_y_.update(selected_y, dt, 560, 44) : selected_y;
     const float pill_width =
         animations ? category_width_.update(selected_width, dt, 560, 44) : selected_width;
-    c.rect(14, pill_y, pill_width, 42, pink, 22);
+    c.gradient_rect(14, pill_y, pill_width, 42, pink, pink_second, 22);
     std::array<float, category_count> hover_weights{};
     for (int i = 0; i < category_count; ++i) {
         const float y = 47 + i * 49.7f;
