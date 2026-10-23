@@ -152,28 +152,34 @@ struct Canvas {
         ImGui::PushID(id);
         label(225, y, caption);
         right(739, y, "range", 13, muted);
+        const float first = std::clamp(range[0] / maximum, 0.0f, 1.0f);
+        const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
         hit("track", 249, y + 17, 464, 20);
         const ImGuiID range_id = ImGui::GetItemID();
-        if (ImGui::IsItemActivated()) {
+        const bool track_active = ImGui::IsItemActive();
+        const bool track_activated = ImGui::IsItemActivated();
+        hit("lower_thumb", 249 + first * 464 - 10, y + 15, 20, 24);
+        const bool lower_active = ImGui::IsItemActive();
+        hit("upper_thumb", 249 + second * 464 - 10, y + 15, 20, 24);
+        const bool upper_active = ImGui::IsItemActive();
+        if (track_activated) {
             const float mouse_value = std::clamp(
                 ((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464.0f * maximum, 0.0f, maximum);
             range_handles[range_id] = std::abs(mouse_value - range[0]) < std::abs(mouse_value - range[1]) ? 0 : 1;
         }
-        if (ImGui::IsItemActive()) {
+        if (lower_active || upper_active || track_active) {
             const float ratio = std::clamp(((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464.0f,
                                            0.0f, 1.0f);
             const float value = ratio * maximum;
-            const int index = range_handles.contains(range_id) ? range_handles[range_id] : 0;
+            const int index = lower_active ? 0 : upper_active ? 1 : range_handles[range_id];
             range[index] = std::clamp(value, 0.0f, maximum);
             if (index == 0)
                 range[0] = std::min(range[0], range[1]);
             else
                 range[1] = std::max(range[0], range[1]);
         }
-        if (ImGui::IsItemDeactivated())
+        if (!track_active && !lower_active && !upper_active)
             range_handles.erase(range_id);
-        const float first = std::clamp(range[0] / maximum, 0.0f, 1.0f);
-        const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
         rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
         rect(249 + 464 * first, y + 20, 464 * (second - first), 10, pink, 5);
         circle(249 + 464 * first - 4, y + 25, 3, IM_COL32(53, 24, 36, 255));
@@ -198,39 +204,33 @@ struct Canvas {
             return 36;
         }
         const float top = y + 36;
-        rect(225, top, 514, 118, IM_COL32(23, 23, 23, 255), 8);
-        outline(225, top, 514, 118, border, 8);
-        rect(239, top + 16, 42, 42, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 8);
-        outline(239, top + 16, 42, 42, border, 8);
-        label(294, top + 17, "Accent color", 16, text);
-        char hex[12];
-        std::snprintf(hex, sizeof(hex), "#%02X%02X%02X", static_cast<int>(color[0] * 255),
-                      static_cast<int>(color[1] * 255), static_cast<int>(color[2] * 255));
-        label(294, top + 38, hex, 13, muted);
-        auto channel = [&](const char *name, int index, float row) {
-            std::array<float, 4> start = color, end = color;
-            start[index] = 0;
-            end[index] = 1;
-            label(294, row - 4, name, 13, muted);
-            d->AddRectFilledMultiColor(p(314, row), p(650, row + 10),
-                                       tint(ImGui::ColorConvertFloat4ToU32({start[0], start[1], start[2], 1})),
-                                       tint(ImGui::ColorConvertFloat4ToU32({end[0], end[1], end[2], 1})),
-                                       tint(ImGui::ColorConvertFloat4ToU32({end[0], end[1], end[2], 1})),
-                                       tint(ImGui::ColorConvertFloat4ToU32({start[0], start[1], start[2], 1})));
-            hit(name, 314, row - 5, 336, 20);
-            if (ImGui::IsItemActive())
-                color[index] = std::clamp((ImGui::GetIO().MousePos.x - p(314, row).x) / (336 * scale), 0.0f, 1.0f);
-            circle(314 + color[index] * 336 - 4, row + 5, 3, IM_COL32(53, 24, 36, 255));
-            char value[5];
-            std::snprintf(value, sizeof(value), "%03d", static_cast<int>(color[index] * 255));
-            right(714, row - 4, value, 13, text);
-        };
-        channel("R", 0, top + 68);
-        channel("G", 1, top + 88);
-        channel("B", 2, top + 108);
+        rect(225, top, 514, 76, IM_COL32(23, 23, 23, 255), 8);
+        outline(225, top, 514, 76, border, 8);
+        label(239, top + 12, "Choose a color", 14, muted);
+        constexpr ImU32 palette[] = {IM_COL32(218, 57, 119, 255), IM_COL32(213, 80, 80, 255),
+                                     IM_COL32(224, 148, 59, 255), IM_COL32(190, 190, 73, 255),
+                                     IM_COL32(78, 179, 111, 255), IM_COL32(73, 158, 207, 255),
+                                     IM_COL32(105, 98, 203, 255), IM_COL32(179, 91, 196, 255)};
+        for (int i = 0; i < static_cast<int>(std::size(palette)); ++i) {
+            const float x = 239 + i * 43;
+            ImGui::PushID(i);
+            const bool selected = ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}) == palette[i];
+            const bool picked = hit("color", x, top + 34, 30, 30);
+            const float swatch_hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.10f,
+                                               Easing::Smoothstep);
+            rect(x, top + 34, 30, 30, palette[i], 8);
+            outline(x, top + 34, 30, 30, selected ? text : blend(border, text, swatch_hover), 8);
+            if (picked) {
+                const ImVec4 picked_color = ImGui::ColorConvertU32ToFloat4(palette[i]);
+                color = {picked_color.x, picked_color.y, picked_color.z, 1};
+                expanded = false;
+            }
+            ImGui::PopID();
+        }
         ImGui::PopID();
-        return 166;
-    }    void multi_combo(const char *id, const char *caption, float y, std::vector<bool> &selected,
+        return 124;
+    }
+    void multi_combo(const char *id, const char *caption, float y, std::vector<bool> &selected,
                      const char *const *options, int count) {
         ImGui::PushID(id);
         selected.resize(count, false);
@@ -711,13 +711,20 @@ void Interface::render(State &s) {
         ImGuiKey &bound_key = s.modules[s.page].key;
         c.label(225, 135, "Enabled", 17, muted);
         c.toggle("enabled", 695, 131, enabled);
-        c.outline(614, 131, 69, 24, border, 12);
-        c.glyph(icons::keyboard, 628, 143, 11, muted);
         const char *key = s.binding                    ? "..."
-                          : bound_key == ImGuiKey_None ? "None"
+                          : bound_key == ImGuiKey_None ? "NONE"
                                                        : ImGui::GetKeyName(bound_key);
-        c.label(641, 135, key, 13, muted);
-        if (c.hit("binding", 614, 131, 69, 24))
+        const float binding_width = std::max(28.0f, font_->CalcTextSizeA(13, 1000, 0, key).x + 20.0f);
+        const float binding_x = 683.0f - binding_width;
+        const bool binding_clicked = c.hit("binding", binding_x, 131, binding_width, 24);
+        const float binding_hover = c.animate("binding_hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
+                                              Easing::Smoothstep);
+        c.rect(binding_x, 131, binding_width, 24,
+               blend(IM_COL32(26, 26, 26, 255), IM_COL32(33, 33, 33, 255), binding_hover), 6);
+        c.outline(binding_x, 131, binding_width, 24, blend(border, pink, binding_hover * 0.6f), 6);
+        const float key_width = font_->CalcTextSizeA(13, 1000, 0, key).x;
+        c.label(binding_x + (binding_width - key_width) / 2, 136, key, 13, muted);
+        if (binding_clicked)
             s.binding = true;
         const bool was_binding = s.binding;
         if (s.binding) {
