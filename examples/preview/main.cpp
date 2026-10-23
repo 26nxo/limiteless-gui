@@ -225,9 +225,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
     wchar_t executable[MAX_PATH];
     GetModuleFileNameW(nullptr, executable, MAX_PATH);
-    auto font = std::filesystem::path(executable).parent_path() / "assets/fonts/PreviewSans.ttf";
+    auto font = std::filesystem::path(executable).parent_path() / "resources/fonts/PreviewSans.ttf";
     if (!ui.initialize(font.string().c_str())) {
-        MessageBoxW(window, L"Missing or invalid preview fonts in assets/fonts", L"Preview error",
+        MessageBoxW(window, L"Missing or invalid preview fonts in resources/fonts", L"Preview error",
                     MB_ICONERROR);
         ImGui::DestroyContext();
         cleanup();
@@ -236,7 +236,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
     ImGui_ImplWin32_Init(window);
     ImGui_ImplDX11_Init(device, context);
-    avatar_texture = load_bmp_texture(std::filesystem::path(executable).parent_path() / "assets/steve.bmp");
+    avatar_texture = load_bmp_texture(std::filesystem::path(executable).parent_path() / "resources/steve.bmp");
     state.avatar = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(avatar_texture));
     ShowWindow(window, SW_SHOWDEFAULT);
     UpdateWindow(window);

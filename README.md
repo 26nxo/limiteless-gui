@@ -1,10 +1,44 @@
 # limitless gui
 
-standalone c++20 / dear imgui menu with a win32 / direct3d 11 preview.
+backend-agnostic c++20 dear imgui menu library intended to be rendered from a host dll.
+
+## layout
+
+- `include/limitless_gui/`: public integration api
+- `src/limitless_gui/`: menu implementation
+- `resources/`: optional preview fonts and avatar
+- `examples/preview/`: win32/direct3d 11 host example
+- `tests/`: interaction coverage
+- `vendor/imgui/`: vendored dear imgui
+
+## embed in a dll
+
+add this repository with `add_subdirectory`, then link the menu target to the dll target:
+
+```cmake
+add_subdirectory(path/to/limitless-gui)
+target_link_libraries(your_dll PRIVATE limitless_gui::limitless_gui)
+```
+
+the host owns the imgui context, backend initialization, render loop, input delivery, and resource lifetime. initialize the menu after the imgui context exists, load persisted configs if wanted, and render between `ImGui::NewFrame()` and `ImGui::Render()`:
+
+```cpp
+limitless_gui::Interface menu;
+limitless_gui::State state;
+
+menu.initialize(font_path, icon_font_path);
+limitless_gui::load_configs(state.configs);
+
+// after imgui::newframe()
+menu.render(state);
+// before imgui::render()
+```
+
+the library does not create a window, install hooks, initialize a graphics backend, or define `DllMain`. assign `State::avatar` to a valid host-owned `ImTextureID` when an avatar is required.
 
 ## build
 
-requires windows, cmake 3.24+, and visual studio c++ build tools.
+the default build produces the reusable static library and tests:
 
 ```sh
 cmake -S . -B build
@@ -12,22 +46,13 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-run `build/Release/limitless_gui.exe` with its `assets` folder alongside it.
+the standalone preview is optional and only available on windows:
 
-## preview
+```sh
+cmake -S . -B build -DLIMITLESS_GUI_BUILD_EXAMPLE=ON
+cmake --build build --config Release
+```
 
-the sidebar keeps all categories. modules were removed, so only settings and configs show content; the other categories open empty. settings and configs use the custom combobox, slider, toggle, color picker, text input, and button widgets.
+run `build/Release/limitless_gui_preview.exe`. its `resources` directory is copied beside the executable automatically.
 
-settings changes the theme, accent color and optional gradient accent, menu scale, animations, profile visibility, menu key, and escape behavior immediately. the second accent color picker is shown only while gradient accent is enabled. configs create, load, save, reveal, and delete snapshots in `%APPDATA%\Limitless\configs`; set `LIMITLESS_GUI_CONFIG_DIR` to use another folder. the preview loads `assets/steve.bmp` for the profile picture; set `State::avatar` to use another texture.
-
-press the menu key (insert by default) to fade the menu in or out. use `--category combat`, `--category configs`, or another category name to choose the opening page. add `--screenshot capture.bmp` to save a settled frame and exit.
-
-## references
-
-the updated video in `references/` supplies the palette, typography, sidebar, footer, and control styling. removing modules changes the reference layout, so the menu is not a pixel-exact reproduction.
-
-## embedding
-
-`include/limitless_gui/limitless.hpp` exposes the state and renderer. initialize after creating an imgui context, call `load_configs(state.configs)` to restore saved configs, then call `render` between new frame and render. link `limitless_gui_core`; use `-DLIMITLESS_GUI_BUILD_PREVIEW=OFF` for the portable library and interaction checks.
-
-dear imgui is vendored under its mit license. bundled text and icon fonts include their licenses in `assets/fonts`.
+configs are stored in `%APPDATA%\Limitless\configs`; set `LIMITLESS_GUI_CONFIG_DIR` to override the location. dear imgui is vendored under its mit license. bundled fonts include their licenses in `resources/fonts`.
