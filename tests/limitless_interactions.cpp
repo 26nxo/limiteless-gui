@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <limitless_gui/limitless.hpp>
 #include <imgui_internal.h>
 #include <iostream>
@@ -49,6 +50,15 @@ int main() {
     const float overshoot = low_rate.update(1, 1.0f / 12);
     require(overshoot > 0 && overshoot < 1.2f, "spring overshot too far");
     ImGui::CreateContext();
+    std::error_code fs_error;
+    const auto config_dir = std::filesystem::temp_directory_path() / "limitless_gui_tests_configs";
+    std::filesystem::remove_all(config_dir, fs_error);
+    std::filesystem::create_directories(config_dir, fs_error);
+#ifdef _WIN32
+    _putenv_s("LIMITLESS_GUI_CONFIG_DIR", config_dir.string().c_str());
+#else
+    setenv("LIMITLESS_GUI_CONFIG_DIR", config_dir.string().c_str(), 1);
+#endif
     limitless_gui::Interface ui;
     limitless_gui::State state;
     require(state.category == limitless_gui::Category::Settings, "settings page did not open by default");
@@ -63,8 +73,8 @@ int main() {
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
     require(io.Fonts->Fonts.Size == 3, "preview fonts were not loaded");
-    for (ImWchar glyph : {0xf140, 0xf21d, 0xf70c, 0xf06e, 0xf121, 0xf234,
-                          0xf0c2, 0xf1de, 0xf067, 0xf068, 0xf07c, 0xf1f8})
+    for (ImWchar glyph : {0xf140, 0xf21d, 0xf70c, 0xf06e, 0xf121, 0xf234, 0xf0c2,
+                          0xf1de, 0xf067, 0xf068, 0xf093, 0xf019, 0xf07b, 0xf1f8})
         require(io.Fonts->Fonts[1]->FindGlyphNoFallback(glyph) != nullptr, "font awesome glyph is missing");
     auto frame = [&]() {
         ImGui::NewFrame();
@@ -166,13 +176,21 @@ int main() {
     require(state.configs.entries.size() == 1 && state.configs.entries[0].name == "pvp",
             "config creation failed");
     require(state.configs.name.empty(), "config name was not cleared");
+    limitless_gui::load_configs(state.configs);
+    require(state.configs.entries.size() == 1, "config file was not saved");
     state.settings.theme = 0;
-    click(665, 312);
+    click(575, 312);
     require(state.settings.theme == 1, "config load failed");
     state.settings.theme = 2;
-    click(665, 312);
-    require(state.settings.theme == 1, "saved config was modified without loading");
-    click(717, 312);
+    click(623, 312);
+    limitless_gui::load_configs(state.configs);
+    require(state.configs.entries.size() == 1 && state.configs.entries[0].settings.theme == 2,
+            "config save was not persisted");
+    state.settings.theme = 0;
+    click(575, 312);
+    require(state.settings.theme == 2, "config save failed");
+    click(719, 312);
+    limitless_gui::load_configs(state.configs);
     require(state.configs.entries.empty(), "config deletion failed");
 
     click(80, 416);

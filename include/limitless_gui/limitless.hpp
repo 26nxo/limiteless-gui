@@ -42,6 +42,8 @@ struct State {
     ImTextureID avatar = 0;
 };
 
+void load_configs(ConfigsState &configs);
+
 class Interface {
   public:
     bool initialize(const char *font_path, const char *icon_font_path = nullptr);

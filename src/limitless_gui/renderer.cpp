@@ -1,17 +1,31 @@
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <limitless_gui/limitless.hpp>
 #include <limitless_gui/icons.hpp>
 #include <limitless_gui/layout.hpp>
+#include <sstream>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <shellapi.h>
+#endif
 
 namespace limitless_gui {
 namespace {
 ImU32 bg = IM_COL32(22, 22, 22, 255), panel = IM_COL32(17, 17, 17, 255);
 ImU32 text = IM_COL32(197, 197, 197, 255), muted = IM_COL32(111, 111, 111, 255);
 ImU32 pink = IM_COL32(222, 73, 119, 255), pink_second = IM_COL32(140, 92, 242, 255),
-      border = IM_COL32(40, 40, 40, 255);
+      border = IM_COL32(40, 40, 40, 255), danger = IM_COL32(184, 64, 70, 255);
 ImU32 blend(ImU32 first, ImU32 second, float t) {
     const ImVec4 a = ImGui::ColorConvertU32ToFloat4(first);
     const ImVec4 b = ImGui::ColorConvertU32ToFloat4(second);
@@ -206,17 +220,19 @@ struct Canvas {
         return clicked;
     }
     bool icon_button(const char *id, const char *icon, const char *tooltip, float x, float y,
-                     float width = 44) {
+                     float width = 44, ImU32 tint = 0) {
         ImGui::PushID(id);
         const bool clicked = hit("button", x, y, width, 28);
         const bool hovered = ImGui::IsItemHovered();
         const float hover = animate("hover", hovered ? 1.0f : 0.0f, 0.12f, Easing::Smoothstep);
         const ImU32 base = blend(panel, text, 0.08f);
-        gradient_rect(x, y, width, 28, blend(base, pink, hover * 0.8f),
-                      blend(base, pink_second, hover * 0.8f), 6);
-        outline(x, y, width, 28, blend(border, pink, hover), 6);
-        glyph(icon, x + width / 2, y + 14, 13, hover > 0.5f ? blend(pink, IM_COL32(0, 0, 0, 255), 0.8f)
-                                                              : muted);
+        const ImU32 icon_color = tint ? tint : muted;
+        const ImU32 hover_start = tint ? tint : pink;
+        const ImU32 hover_end = tint ? blend(tint, text, 0.12f) : pink_second;
+        gradient_rect(x, y, width, 28, blend(base, hover_start, hover * 0.8f),
+                      blend(base, hover_end, hover * 0.8f), 6);
+        outline(x, y, width, 28, blend(border, hover_start, hover), 6);
+        glyph(icon, x + width / 2, y + 14, 15, blend(icon_color, text, hover * 0.3f));
         if (hovered)
             ImGui::SetTooltip("%s", tooltip);
         ImGui::PopID();
@@ -751,6 +767,118 @@ void load_settings(SettingsState &target, const SettingsState &source) {
     target = snapshot_settings(source);
 }
 
+std::filesystem::path config_directory() {
+    if (const char *custom = std::getenv("LIMITLESS_GUI_CONFIG_DIR"); custom && *custom)
+        return std::filesystem::path(custom);
+#ifdef _WIN32
+    if (const char *appdata = std::getenv("APPDATA"); appdata && *appdata)
+        return std::filesystem::path(appdata) / "Limitless" / "configs";
+#endif
+    return std::filesystem::current_path() / "configs";
+}
+
+std::filesystem::path config_path(const std::string &name) {
+    std::string file = name;
+    const std::string invalid = "<>:\"/\\|?*";
+    for (char &ch : file) {
+        if (static_cast<unsigned char>(ch) < 32 || invalid.find(ch) != std::string::npos)
+            ch = '_';
+    }
+    while (!file.empty() && (file.back() == ' ' || file.back() == '.'))
+        file.pop_back();
+    if (file.empty())
+        file = "config";
+    return config_directory() / (file + ".cfg");
+}
+
+void write_config_file(const ConfigEntry &entry) {
+    std::error_code ec;
+    std::filesystem::create_directories(config_directory(), ec);
+    std::ofstream out(config_path(entry.name), std::ios::trunc);
+    if (!out)
+        return;
+    const auto &s = entry.settings;
+    out << "name=" << entry.name << '\n'
+        << "theme=" << s.theme << '\n'
+        << "scale=" << s.scale << '\n'
+        << "animations=" << s.animations << '\n'
+        << "show_profile=" << s.show_profile << '\n'
+        << "close_on_escape=" << s.close_on_escape << '\n'
+        << "menu_key=" << static_cast<int>(s.menu_key) << '\n'
+        << "accent=" << s.accent[0] << ',' << s.accent[1] << ',' << s.accent[2] << ',' << s.accent[3]
+        << '\n'
+        << "accent_secondary=" << s.accent_secondary[0] << ',' << s.accent_secondary[1] << ','
+        << s.accent_secondary[2] << ',' << s.accent_secondary[3] << '\n'
+        << "accent_gradient=" << s.accent_gradient << '\n';
+}
+
+void remove_config_file(const std::string &name) {
+    std::error_code ec;
+    std::filesystem::remove(config_path(name), ec);
+}
+
+void reveal_configs_folder() {
+    std::error_code ec;
+    std::filesystem::create_directories(config_directory(), ec);
+#ifdef _WIN32
+    const auto folder = config_directory().wstring();
+    ShellExecuteW(nullptr, L"open", folder.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+#else
+    const auto command = "xdg-open \"" + config_directory().string() + "\" >/dev/null 2>&1 &";
+    std::system(command.c_str());
+#endif
+}
+
+bool parse_color(std::istringstream &input, std::array<float, 4> &color) {
+    char comma = 0;
+    return input >> color[0] >> comma && comma == ',' && input >> color[1] >> comma &&
+           comma == ',' && input >> color[2] >> comma && comma == ',' && input >> color[3];
+}
+
+bool read_config_file(const std::filesystem::path &path, ConfigEntry &entry) {
+    std::ifstream in(path);
+    if (!in)
+        return false;
+    entry = {};
+    std::string line;
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        const auto equals = line.find('=');
+        if (equals == std::string::npos)
+            continue;
+        const std::string key = line.substr(0, equals);
+        const std::string value = line.substr(equals + 1);
+        std::istringstream parser(value);
+        if (key == "name")
+            entry.name = value;
+        else if (key == "theme")
+            parser >> entry.settings.theme;
+        else if (key == "scale")
+            parser >> entry.settings.scale;
+        else if (key == "animations")
+            parser >> entry.settings.animations;
+        else if (key == "show_profile")
+            parser >> entry.settings.show_profile;
+        else if (key == "close_on_escape")
+            parser >> entry.settings.close_on_escape;
+        else if (key == "menu_key") {
+            int key = 0;
+            if (parser >> key)
+                entry.settings.menu_key = static_cast<ImGuiKey>(key);
+        } else if (key == "accent")
+            parse_color(parser, entry.settings.accent);
+        else if (key == "accent_secondary")
+            parse_color(parser, entry.settings.accent_secondary);
+        else if (key == "accent_gradient")
+            parser >> entry.settings.accent_gradient;
+    }
+    entry.settings.accent_open = false;
+    entry.settings.accent_secondary_open = false;
+    entry.settings.binding_key = false;
+    return !entry.name.empty();
+}
+
 void settings_page(Canvas &c, SettingsState &state) {
     float y = 135;
     c.label(225, y, "Appearance", 13, muted);
@@ -804,6 +932,7 @@ void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
                                        [&](const ConfigEntry &entry) { return entry.name == configs.name; });
     if (c.button("create", "Create config", 225, y, 180) && !configs.name.empty() && !duplicate) {
         configs.entries.push_back({configs.name, snapshot_settings(settings)});
+        write_config_file(configs.entries.back());
         configs.name.clear();
     }
     if (duplicate)
@@ -821,22 +950,46 @@ void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
     for (int i = 0; i < static_cast<int>(configs.entries.size()); ++i) {
         auto &entry = configs.entries[static_cast<size_t>(i)];
         c.rect(225, y, 514, 34, blend(panel, text, 0.025f), 6);
-        c.d->PushClipRect(c.p(233, y), c.p(635, y + 34), true);
+        c.d->PushClipRect(c.p(233, y), c.p(547, y + 34), true);
         c.label(233, y + 9, entry.name.c_str(), 15, text);
         c.d->PopClipRect();
         const auto index = std::to_string(i);
-        if (c.icon_button(("load_" + index).c_str(), icons::folder_open, "Load", 643, y + 3))
+        if (c.icon_button(("load_" + index).c_str(), icons::upload, "Load", 555, y + 3, 40))
             load_settings(settings, entry.settings);
-        if (c.icon_button(("delete_" + index).c_str(), icons::trash, "Delete", 695, y + 3))
+        if (c.icon_button(("save_" + index).c_str(), icons::download, "Save", 603, y + 3, 40)) {
+            entry.settings = snapshot_settings(settings);
+            write_config_file(entry);
+        }
+        if (c.icon_button(("folder_" + index).c_str(), icons::folder, "Open folder", 651, y + 3, 40))
+            reveal_configs_folder();
+        if (c.icon_button(("delete_" + index).c_str(), icons::trash, "Delete", 699, y + 3, 40, danger))
             remove = i;
         y += 42;
     }
-    if (remove >= 0)
+    if (remove >= 0) {
+        remove_config_file(configs.entries[static_cast<size_t>(remove)].name);
         configs.entries.erase(configs.entries.begin() + remove);
+    }
     ImGui::SetCursorScreenPos(c.p(225, y + 24));
     ImGui::Dummy({1, 1});
 }
 } // namespace
+void load_configs(ConfigsState &configs) {
+    configs.entries.clear();
+    std::error_code ec;
+    const auto directory = config_directory();
+    if (!std::filesystem::exists(directory, ec))
+        return;
+    for (const auto &item : std::filesystem::directory_iterator(directory, ec)) {
+        if (!item.is_regular_file() || item.path().extension() != ".cfg")
+            continue;
+        ConfigEntry entry;
+        if (read_config_file(item.path(), entry))
+            configs.entries.push_back(entry);
+    }
+    std::sort(configs.entries.begin(), configs.entries.end(),
+              [](const ConfigEntry &left, const ConfigEntry &right) { return left.name < right.name; });
+}
 bool Interface::initialize(const char *path, const char *icon_path) {
     if (!path)
         return false;

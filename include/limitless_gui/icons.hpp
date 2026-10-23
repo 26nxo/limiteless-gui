@@ -11,6 +11,8 @@ inline constexpr const char *cloud = "\xef\x83\x82";
 inline constexpr const char *sliders = "\xef\x87\x9e";
 inline constexpr const char *plus = "\xef\x81\xa7";
 inline constexpr const char *minus = "\xef\x81\xa8";
-inline constexpr const char *folder_open = "\xef\x81\xbc";
+inline constexpr const char *upload = "\xef\x82\x93";
+inline constexpr const char *download = "\xef\x80\x99";
+inline constexpr const char *folder = "\xef\x81\xbb";
 inline constexpr const char *trash = "\xef\x87\xb8";
 } // namespace limitless_gui::icons

@@ -200,6 +200,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     ImGui::CreateContext();
     limitless_gui::Interface ui;
     limitless_gui::State state;
+    limitless_gui::load_configs(state.configs);
     std::filesystem::path screenshot;
     int argc = 0;
     LPWSTR *arguments = CommandLineToArgvW(GetCommandLineW(), &argc);
