@@ -220,7 +220,7 @@ struct Canvas {
         return clicked;
     }
     bool icon_button(const char *id, const char *icon, const char *tooltip, float x, float y,
-                     float width = 44, ImU32 tint = 0, bool hoverable = true,
+                     float width = 44, ImU32 accent = 0, bool hoverable = true,
                      float hold_seconds = 0.0f) {
         ImGui::PushID(id);
         const bool clicked = hit("button", x, y, width, 28);
@@ -252,18 +252,31 @@ struct Canvas {
             hold_progress = fired ? 1.0f : std::clamp(held / hold_seconds, 0.0f, 1.0f);
         }
         const ImU32 base = blend(panel, text, 0.08f);
-        const ImU32 icon_color = tint ? tint : muted;
-        const ImU32 hover_start = tint ? tint : pink;
-        const ImU32 hover_end = tint ? blend(tint, text, 0.12f) : pink_second;
-        gradient_rect(x, y, width, 28, blend(base, hover_start, hover * 0.8f),
-                      blend(base, hover_end, hover * 0.8f), 6);
-        if (hold_progress > 0.0f) {
-            d->PushClipRect(p(x, y), p(x + width, y + 28 * hold_progress), true);
-            rect(x, y, width, 28, IM_COL32(255, 255, 255, 42), 6);
-            d->PopClipRect();
+        const ImU32 icon_color = accent ? accent : muted;
+        const ImU32 hover_start = accent ? accent : pink;
+        const ImU32 hover_end = accent ? blend(accent, text, 0.12f) : pink_second;
+        const float hold_mix = hold_progress * 0.18f;
+        gradient_rect(x, y, width, 28, blend(blend(base, hover_start, hover * 0.8f), hover_start, hold_mix),
+                      blend(blend(base, hover_end, hover * 0.8f), hover_end, hold_mix), 6);
+        if (hold_progress > 0.01f) {
+            const ImVec2 center = p(x + width / 2, y + 14);
+            const float radius = 10.5f * scale;
+            const float thickness = 2.0f * scale;
+            d->AddCircle(center, radius, tint(blend(border, hover_start, 0.35f)), 0, thickness);
+            constexpr float pi = 3.1415926535f;
+            const float start = -pi / 2;
+            const float end = start + pi * 2 * hold_progress;
+            d->PathArcTo(center, radius, start, end, 32);
+            d->PathStroke(tint(hover_start), 0, thickness);
+            if (hold_progress < 0.97f) {
+                const ImVec2 tip(center.x + std::cos(end) * radius,
+                                 center.y + std::sin(end) * radius);
+                d->AddCircleFilled(tip, thickness * 0.7f, tint(blend(hover_start, text, 0.5f)), 0);
+            }
         }
-        outline(x, y, width, 28, blend(border, hover_start, hover), 6);
-        glyph(icon, x + width / 2, y + 14, 15, blend(icon_color, text, hover * 0.3f));
+        outline(x, y, width, 28, blend(border, hover_start, hover + hold_progress * 0.9f), 6);
+        glyph(icon, x + width / 2, y + 14, 15,
+              blend(icon_color, text, std::max(hover * 0.3f, hold_progress * 0.6f)));
         if (hovered)
             ImGui::SetTooltip("%s", tooltip);
         ImGui::PopID();
