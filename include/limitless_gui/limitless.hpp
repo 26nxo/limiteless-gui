@@ -40,6 +40,7 @@ class Interface {
     std::map<ImGuiID, Spring> springs_;
     std::map<ImGuiID, float> scroll_targets_;
     std::map<ImGuiID, Animation> scroll_animations_;
+    std::map<ImGuiID, int> range_handles_;
     Animation entrance_;
     Animation content_fade_;
     Animation content_slide_;

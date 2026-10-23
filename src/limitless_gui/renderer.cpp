@@ -29,6 +29,7 @@ struct Canvas {
     std::map<ImGuiID, Spring> &springs;
     std::map<ImGuiID, float> &scroll_targets;
     std::map<ImGuiID, Animation> &scroll_animations;
+    std::map<ImGuiID, int> &range_handles;
     ImU32 tint(ImU32 color) const {
         ImVec4 value = ImGui::ColorConvertU32ToFloat4(color);
         value.w *= ImGui::GetStyle().Alpha;
@@ -152,15 +153,25 @@ struct Canvas {
         label(225, y, caption);
         right(739, y, "range", 13, muted);
         hit("track", 249, y + 17, 464, 20);
+        const ImGuiID range_id = ImGui::GetItemID();
+        if (ImGui::IsItemActivated()) {
+            const float mouse_value = std::clamp(
+                ((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464.0f * maximum, 0.0f, maximum);
+            range_handles[range_id] = std::abs(mouse_value - range[0]) < std::abs(mouse_value - range[1]) ? 0 : 1;
+        }
         if (ImGui::IsItemActive()) {
             const float ratio = std::clamp(((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464.0f,
                                            0.0f, 1.0f);
             const float value = ratio * maximum;
-            const int index = std::abs(value - range[0]) < std::abs(value - range[1]) ? 0 : 1;
+            const int index = range_handles.contains(range_id) ? range_handles[range_id] : 0;
             range[index] = std::clamp(value, 0.0f, maximum);
-            if (range[0] > range[1])
-                std::swap(range[0], range[1]);
+            if (index == 0)
+                range[0] = std::min(range[0], range[1]);
+            else
+                range[1] = std::max(range[0], range[1]);
         }
+        if (ImGui::IsItemDeactivated())
+            range_handles.erase(range_id);
         const float first = std::clamp(range[0] / maximum, 0.0f, 1.0f);
         const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
         rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
@@ -172,59 +183,54 @@ struct Canvas {
         right(739, y + 29, values, 13, muted);
         ImGui::PopID();
     }
-    void color_picker(const char *id, const char *caption, float y, std::array<float, 4> &color) {
+    float color_picker(const char *id, const char *caption, float y, std::array<float, 4> &color, bool &expanded) {
         ImGui::PushID(id);
         label(225, y + 5, caption);
         const bool clicked = hit("swatch", 695, y, 44, 24);
-        const bool open = ImGui::IsPopupOpen(id);
-        rect(695, y, 44, 24, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 12);
-        outline(695, y, 44, 24, open ? pink : border, 12);
+        const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
+                                    Easing::Smoothstep);
         if (clicked)
-            ImGui::OpenPopup(id);
-        if (begin_popup(id, 430, y + 30, 320, 166)) {
-            ImDrawList *child_draw_list = d;
-            ImDrawList *popup = ImGui::GetWindowDrawList();
-            d = popup;
-            const float left = 442;
-            const float top = y + 42;
-            rect(left, top, 42, 42, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 8);
-            outline(left, top, 42, 42, border, 8);
-            label(left + 54, top + 2, "Accent color", 16, text);
-            char hex[12];
-            std::snprintf(hex, sizeof(hex), "#%02X%02X%02X", static_cast<int>(color[0] * 255),
-                          static_cast<int>(color[1] * 255), static_cast<int>(color[2] * 255));
-            label(left + 54, top + 23, hex, 13, muted);
-            auto channel = [&](const char *name, int index, float row) {
-                std::array<float, 4> start = color, end = color;
-                start[index] = 0;
-                end[index] = 1;
-                label(left, row - 4, name, 13, muted);
-                popup->AddRectFilledMultiColor(p(left + 20, row), p(left + 202, row + 10),
-                                               tint(ImGui::ColorConvertFloat4ToU32(
-                                                   {start[0], start[1], start[2], 1})),
-                                               tint(ImGui::ColorConvertFloat4ToU32({end[0], end[1], end[2], 1})),
-                                               tint(ImGui::ColorConvertFloat4ToU32({end[0], end[1], end[2], 1})),
-                                               tint(ImGui::ColorConvertFloat4ToU32(
-                                                   {start[0], start[1], start[2], 1})));
-                ImGui::SetCursorScreenPos(p(left + 20, row - 5));
-                ImGui::InvisibleButton(name, {182 * scale, 20 * scale});
-                if (ImGui::IsItemActive())
-                    color[index] = std::clamp((ImGui::GetIO().MousePos.x - p(left + 20, row).x) / (182 * scale),
-                                              0.0f, 1.0f);
-                circle(left + 20 + color[index] * 182 - 4, row + 5, 3, IM_COL32(53, 24, 36, 255));
-                char value[5];
-                std::snprintf(value, sizeof(value), "%03d", static_cast<int>(color[index] * 255));
-                right(left + 262, row - 4, value, 13, text);
-            };
-            channel("R", 0, top + 62);
-            channel("G", 1, top + 88);
-            channel("B", 2, top + 114);
-            d = child_draw_list;
-            end_popup();
+            expanded = !expanded;
+        rect(695, y, 44, 24, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 12);
+        outline(695, y, 44, 24, blend(border, pink, expanded ? 1.0f : hover * 0.5f), 12);
+        if (!expanded) {
+            ImGui::PopID();
+            return 36;
         }
+        const float top = y + 36;
+        rect(225, top, 514, 118, IM_COL32(23, 23, 23, 255), 8);
+        outline(225, top, 514, 118, border, 8);
+        rect(239, top + 16, 42, 42, ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}), 8);
+        outline(239, top + 16, 42, 42, border, 8);
+        label(294, top + 17, "Accent color", 16, text);
+        char hex[12];
+        std::snprintf(hex, sizeof(hex), "#%02X%02X%02X", static_cast<int>(color[0] * 255),
+                      static_cast<int>(color[1] * 255), static_cast<int>(color[2] * 255));
+        label(294, top + 38, hex, 13, muted);
+        auto channel = [&](const char *name, int index, float row) {
+            std::array<float, 4> start = color, end = color;
+            start[index] = 0;
+            end[index] = 1;
+            label(294, row - 4, name, 13, muted);
+            d->AddRectFilledMultiColor(p(314, row), p(650, row + 10),
+                                       tint(ImGui::ColorConvertFloat4ToU32({start[0], start[1], start[2], 1})),
+                                       tint(ImGui::ColorConvertFloat4ToU32({end[0], end[1], end[2], 1})),
+                                       tint(ImGui::ColorConvertFloat4ToU32({end[0], end[1], end[2], 1})),
+                                       tint(ImGui::ColorConvertFloat4ToU32({start[0], start[1], start[2], 1})));
+            hit(name, 314, row - 5, 336, 20);
+            if (ImGui::IsItemActive())
+                color[index] = std::clamp((ImGui::GetIO().MousePos.x - p(314, row).x) / (336 * scale), 0.0f, 1.0f);
+            circle(314 + color[index] * 336 - 4, row + 5, 3, IM_COL32(53, 24, 36, 255));
+            char value[5];
+            std::snprintf(value, sizeof(value), "%03d", static_cast<int>(color[index] * 255));
+            right(714, row - 4, value, 13, text);
+        };
+        channel("R", 0, top + 68);
+        channel("G", 1, top + 88);
+        channel("B", 2, top + 108);
         ImGui::PopID();
-    }
-    void multi_combo(const char *id, const char *caption, float y, std::vector<bool> &selected,
+        return 166;
+    }    void multi_combo(const char *id, const char *caption, float y, std::vector<bool> &selected,
                      const char *const *options, int count) {
         ImGui::PushID(id);
         selected.resize(count, false);
@@ -438,8 +444,8 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &) {
     multi("Target groups", targets, 4);
     auto [accent, accent_inserted] =
         state.colors.try_emplace("Accent color", std::array<float, 4>{0.85f, 0.22f, 0.47f, 1.0f});
-    c.color_picker("accent", "Accent color", y, accent->second);
-    y += 48;
+    auto [accent_open, accent_open_inserted] = state.switches.try_emplace("Accent color open", false);
+    y += c.color_picker("accent", "Accent color", y, accent->second, accent_open->second);
     section("Text and actions");
     auto [profile, profile_inserted] = state.texts.try_emplace("Profile name", "limitless gui");
     c.text_input("profile", "Profile name", y, profile->second);
@@ -499,6 +505,7 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &) {
     springs_.clear();
     scroll_targets_.clear();
     scroll_animations_.clear();
+    range_handles_.clear();
     entrance_.reset(0);
     content_fade_.reset(1);
     content_slide_.reset(0);
@@ -532,7 +539,7 @@ void Interface::render(State &s) {
                      ImGuiWindowFlags_NoSavedSettings |
                      (s.visible ? ImGuiWindowFlags_None : ImGuiWindowFlags_NoInputs));
     Canvas c{ImGui::GetWindowDrawList(), font_, origin, scale, icons_, tweens_, springs_,
-             scroll_targets_, scroll_animations_};
+             scroll_targets_, scroll_animations_, range_handles_};
     c.rect(1, 3, 770, 622, bg, 18);
     c.label(695, 6, "limitless gui", 16, muted);
     c.d->PushClipRect(c.p(0, 30), c.p(182, 480), true);
