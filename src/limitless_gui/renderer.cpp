@@ -329,10 +329,7 @@ struct Canvas {
             const float alpha_y = 58 + (1 - color[3]) * 140;
             rect(239, alpha_y - 3, 20, 6, IM_COL32(0, 0, 0, 170), 3);
             rect(240, alpha_y - 2, 18, 4, IM_COL32(255, 255, 255, 255), 2);
-            char opacity[24];
-            std::snprintf(opacity, sizeof(opacity), "Opacity %.0f%%", color[3] * 100);
-            right(256, 244, opacity, 10, muted);
-            label(16, 244, "HEX", 10, muted);
+            label(16, 268, "hex:", 13, muted);
             const ImGuiID hex_id = ImGui::GetID("hex");
             auto &hex = hex_buffers[hex_id];
             if (!ImGui::GetIO().WantTextInput)
@@ -340,8 +337,8 @@ struct Canvas {
                               static_cast<int>(color[0] * 255 + 0.5f),
                               static_cast<int>(color[1] * 255 + 0.5f),
                               static_cast<int>(color[2] * 255 + 0.5f));
-            ImGui::SetCursorScreenPos(p(16, 260));
-            ImGui::SetNextItemWidth(240 * scale);
+            ImGui::SetCursorScreenPos(p(52, 260));
+            ImGui::SetNextItemWidth(204 * scale);
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8 * scale);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {10 * scale, 7 * scale});
             ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(25, 25, 25, 255));
