@@ -41,6 +41,8 @@ class Interface {
     std::map<ImGuiID, float> scroll_targets_;
     std::map<ImGuiID, Animation> scroll_animations_;
     std::map<ImGuiID, int> range_handles_;
+    std::map<ImGuiID, float> color_hues_;
+    std::map<ImGuiID, std::array<char, 8>> hex_buffers_;
     Animation entrance_;
     Animation content_fade_;
     Animation content_slide_;

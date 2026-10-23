@@ -103,6 +103,25 @@ int main() {
     click(700, 559);
     require(state.modules["Widget Gallery"].ranges["Visible range"][1] > 75,
             "double slider interaction failed");
+    io.AddMousePosEvent(400, 420);
+    frame();
+    io.AddMouseWheelEvent(0, -8);
+    for (int i = 0; i < 30; ++i)
+        frame();
+    const auto previous_color = state.modules["Widget Gallery"].colors["Accent color"];
+    click(727, 349);
+    require(state.modules["Widget Gallery"].switches["Accent color open"],
+            "color picker did not open");
+    click(600, 430);
+    const auto edited_color = state.modules["Widget Gallery"].colors["Accent color"];
+    require(std::abs(edited_color[0] - previous_color[0]) > 0.01f ||
+                std::abs(edited_color[1] - previous_color[1]) > 0.01f ||
+                std::abs(edited_color[2] - previous_color[2]) > 0.01f,
+            "color field did not update the accent color");
+    click(680, 582);
+    frame();
+    require(!state.modules["Widget Gallery"].switches["Accent color open"],
+            "color picker did not close");
     click(722, 75);
     require(state.page.empty(), "close button failed");
     click(659, 85);

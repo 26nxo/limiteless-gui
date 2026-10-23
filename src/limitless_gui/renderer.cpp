@@ -30,6 +30,8 @@ struct Canvas {
     std::map<ImGuiID, float> &scroll_targets;
     std::map<ImGuiID, Animation> &scroll_animations;
     std::map<ImGuiID, int> &range_handles;
+    std::map<ImGuiID, float> &color_hues;
+    std::map<ImGuiID, std::array<char, 8>> &hex_buffers;
     ImU32 tint(ImU32 color) const {
         ImVec4 value = ImGui::ColorConvertU32ToFloat4(color);
         value.w *= ImGui::GetStyle().Alpha;
@@ -180,7 +182,8 @@ struct Canvas {
         right(739, y + 29, values, 13, muted);
         ImGui::PopID();
     }
-    float color_picker(const char *id, const char *caption, float y, std::array<float, 4> &color, bool &expanded) {
+    float color_picker(const char *id, const char *caption, float y, std::array<float, 4> &color,
+                       bool &expanded) {
         ImGui::PushID(id);
         label(225, y + 5, caption);
         const bool clicked = hit("swatch", 715, y, 24, 24);
@@ -197,44 +200,161 @@ struct Canvas {
         }
         const ImVec2 anchor = p(739, y + 28);
         const ImVec2 display = ImGui::GetIO().DisplaySize;
-        ImGui::SetNextWindowPos({std::max(0.0f, std::min(anchor.x - 272 * scale, display.x - 272 * scale)),
-                                 std::max(0.0f, std::min(anchor.y, display.y - 350 * scale))},
-                                ImGuiCond_Appearing);
-        ImGui::SetNextWindowSize({272 * scale, 0});
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {18 * scale, 18 * scale});
-        ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 18 * scale);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 9 * scale);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {10 * scale, 8 * scale});
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {10 * scale, 12 * scale});
+        const float width = 272, height = 310;
+        const float left = std::max(8 * scale, std::min(anchor.x - width * scale,
+                                                       display.x - (width + 8) * scale));
+        const float top = std::max(8 * scale, std::min(anchor.y, display.y - (height + 8) * scale));
+        ImGui::SetNextWindowPos({left, top}, ImGuiCond_Appearing);
+        ImGui::SetNextWindowSize({width * scale, height * scale});
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 16 * scale);
         ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, scale);
         ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(18, 18, 18, 255));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(27, 27, 27, 255));
-        ImGui::PushStyleColor(ImGuiCol_Border, border);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(34, 30, 32, 255));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(39, 31, 35, 255));
-        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, IM_COL32(235, 65, 119, 80));
+        ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(44, 44, 44, 255));
         if (ImGui::BeginPopup("color_editor")) {
+            const ImVec2 origin_backup = origin;
+            ImDrawList *draw_backup = d;
+            origin = ImGui::GetWindowPos();
+            d = ImGui::GetWindowDrawList();
             ImGui::SetWindowFontScale(0.75f * scale);
-            const ImVec2 header = ImGui::GetCursorScreenPos();
-            auto *draw = ImGui::GetWindowDrawList();
-            draw->AddRectFilled(header, {header.x + 236 * scale, header.y + 40 * scale},
-                                tint(IM_COL32(25, 25, 25, 255)), 10 * scale);
-            draw->AddRectFilled({header.x + 10 * scale, header.y + 10 * scale},
-                                {header.x + 30 * scale, header.y + 30 * scale},
-                                tint(ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1})),
-                                6 * scale);
-            draw->AddText(font, 15 * scale, {header.x + 42 * scale, header.y + 12 * scale},
-                          tint(text), caption);
-            ImGui::Dummy({236 * scale, 40 * scale});
-            ImGui::SetNextItemWidth(236 * scale);
-            ImGui::ColorPicker4("##picker", color.data(), ImGuiColorEditFlags_PickerHueBar |
-                                ImGuiColorEditFlags_DisplayHex | ImGuiColorEditFlags_NoSidePreview |
-                                ImGuiColorEditFlags_NoSmallPreview | ImGuiColorEditFlags_NoOptions |
-                                ImGuiColorEditFlags_NoAlpha);
+            constexpr float pi = 3.14159265358979323846f;
+            auto round_corners = [&](float x, float y, float w, float h, float r) {
+                const ImU32 background = tint(IM_COL32(18, 18, 18, 255));
+                auto corner = [&](float cx, float cy, float center_x, float center_y, float from,
+                                  float to) {
+                    constexpr int steps = 10;
+                    ImVec2 previous = {center_x + std::cos(from) * r, center_y + std::sin(from) * r};
+                    for (int step = 1; step <= steps; ++step) {
+                        const float angle = from + (to - from) * step / steps;
+                        const ImVec2 next = {center_x + std::cos(angle) * r,
+                                             center_y + std::sin(angle) * r};
+                        d->AddTriangleFilled(p(cx, cy), p(previous.x, previous.y),
+                                             p(next.x, next.y), background);
+                        previous = next;
+                    }
+                };
+                corner(x, y, x + r, y + r, -pi / 2, -pi);
+                corner(x + w, y, x + w - r, y + r, 0, -pi / 2);
+                corner(x + w, y + h, x + w - r, y + h - r, pi / 2, 0);
+                corner(x, y + h, x + r, y + h - r, pi, pi / 2);
+            };
+            const ImU32 current = ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1});
+            rect(16, 16, 26, 26, current, 8);
+            outline(16, 16, 26, 26, IM_COL32(58, 58, 58, 255), 8);
+            label(52, 18, caption, 14, text);
+            char value[16];
+            std::snprintf(value, sizeof(value), "#%02X%02X%02X", static_cast<int>(color[0] * 255 + 0.5f),
+                          static_cast<int>(color[1] * 255 + 0.5f), static_cast<int>(color[2] * 255 + 0.5f));
+            label(52, 36, value, 11, muted);
+            float hue, saturation, brightness;
+            ImGui::ColorConvertRGBtoHSV(color[0], color[1], color[2], hue, saturation, brightness);
+            const ImGuiID hue_id = ImGui::GetID("hue");
+            float &saved_hue = color_hues[hue_id];
+            if (saturation > 0.001f)
+                saved_hue = hue;
+            hue = saved_hue;
+            auto hue_color = [&](float h) {
+                float r, g, b;
+                ImGui::ColorConvertHSVtoRGB(h, 1, 1, r, g, b);
+                return ImGui::ColorConvertFloat4ToU32({r, g, b, 1});
+            };
+            constexpr float field_x = 16, field_y = 58, field_w = 240, field_h = 140;
+            d->AddRectFilledMultiColor(p(field_x, field_y), p(field_x + field_w, field_y + field_h),
+                                       tint(IM_COL32(255, 255, 255, 255)),
+                                       tint(hue_color(hue)), tint(hue_color(hue)),
+                                       tint(IM_COL32(255, 255, 255, 255)));
+            d->AddRectFilledMultiColor(p(field_x, field_y), p(field_x + field_w, field_y + field_h),
+                                       tint(IM_COL32(0, 0, 0, 0)), tint(IM_COL32(0, 0, 0, 0)),
+                                       tint(IM_COL32(0, 0, 0, 255)), tint(IM_COL32(0, 0, 0, 255)));
+            round_corners(field_x, field_y, field_w, field_h, 10);
+            outline(field_x, field_y, field_w, field_h, IM_COL32(54, 54, 54, 255), 10);
+            hit("field", field_x, field_y, field_w, field_h);
+            if (ImGui::IsItemActive()) {
+                const ImVec2 mouse = ImGui::GetIO().MousePos;
+                saturation = std::clamp((mouse.x - p(field_x, field_y).x) / (field_w * scale), 0.0f, 1.0f);
+                brightness =
+                    std::clamp(1.0f - (mouse.y - p(field_x, field_y).y) / (field_h * scale), 0.0f, 1.0f);
+                ImGui::ColorConvertHSVtoRGB(hue, saturation, brightness, color[0], color[1], color[2]);
+                color[3] = 1;
+            }
+            const float cursor_x = field_x + saturation * field_w;
+            const float cursor_y = field_y + (1 - brightness) * field_h;
+            circle(cursor_x, cursor_y, 6.4f, IM_COL32(0, 0, 0, 170));
+            circle(cursor_x, cursor_y, 4.6f,
+                   ImGui::ColorConvertFloat4ToU32({color[0], color[1], color[2], 1}));
+            circle(cursor_x, cursor_y, 5.3f, IM_COL32(255, 255, 255, 255), false);
+            constexpr float hue_x = 16, hue_y = 214, hue_w = 240, hue_h = 12;
+            for (int band = 0; band < 6; ++band) {
+                const float from = band / 6.0f, to = (band + 1) / 6.0f;
+                d->AddRectFilledMultiColor(p(hue_x + hue_w * from, hue_y),
+                                           p(hue_x + hue_w * to, hue_y + hue_h),
+                                           tint(hue_color(from)), tint(hue_color(to)),
+                                           tint(hue_color(to)), tint(hue_color(from)));
+            }
+            round_corners(hue_x, hue_y, hue_w, hue_h, 6);
+            hit("hue", hue_x, hue_y - 4, hue_w, hue_h + 8);
+            if (ImGui::IsItemActive()) {
+                hue = std::clamp((ImGui::GetIO().MousePos.x - p(hue_x, hue_y).x) / (hue_w * scale),
+                                 0.0f, 1.0f);
+                saved_hue = hue;
+                ImGui::ColorConvertHSVtoRGB(hue, saturation, brightness, color[0], color[1], color[2]);
+                color[3] = 1;
+            }
+            const float hue_cursor = hue_x + hue * hue_w;
+            rect(hue_cursor - 3, hue_y - 4, 6, 20, IM_COL32(0, 0, 0, 120), 3);
+            rect(hue_cursor - 2, hue_y - 3, 4, 18, IM_COL32(255, 255, 255, 255), 2);
+            label(16, 244, "HEX", 10, muted);
+            const ImGuiID hex_id = ImGui::GetID("hex");
+            auto &hex = hex_buffers[hex_id];
+            if (!ImGui::GetIO().WantTextInput)
+                std::snprintf(hex.data(), hex.size(), "%02X%02X%02X",
+                              static_cast<int>(color[0] * 255 + 0.5f),
+                              static_cast<int>(color[1] * 255 + 0.5f),
+                              static_cast<int>(color[2] * 255 + 0.5f));
+            ImGui::SetCursorScreenPos(p(16, 260));
+            ImGui::SetNextItemWidth(140 * scale);
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8 * scale);
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {10 * scale, 7 * scale});
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(25, 25, 25, 255));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(32, 32, 32, 255));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(36, 36, 36, 255));
+            ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(44, 44, 44, 255));
+            ImGui::PushStyleColor(ImGuiCol_Text, text);
+            if (ImGui::InputText("##hex", hex.data(), hex.size(),
+                                 ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase) &&
+                std::char_traits<char>::length(hex.data()) == 6) {
+                unsigned rgb = 0;
+                if (std::sscanf(hex.data(), "%x", &rgb) == 1) {
+                    color[0] = ((rgb >> 16) & 255) / 255.0f;
+                    color[1] = ((rgb >> 8) & 255) / 255.0f;
+                    color[2] = (rgb & 255) / 255.0f;
+                    color[3] = 1;
+                    float h, s, v;
+                    ImGui::ColorConvertRGBtoHSV(color[0], color[1], color[2], h, s, v);
+                    if (s > 0.001f)
+                        saved_hue = h;
+                }
+            }
+            ImGui::PopStyleColor(5);
+            ImGui::PopStyleVar(2);
+            ImGui::PushID("done");
+            const bool done_clicked = hit("button", 172, 260, 84, 30);
+            const float done_hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.10f,
+                                             Easing::Smoothstep);
+            rect(172, 260, 84, 30, blend(IM_COL32(27, 27, 27, 255), IM_COL32(36, 36, 36, 255), done_hover),
+                 8);
+            outline(172, 260, 84, 30, blend(IM_COL32(44, 44, 44, 255), pink, done_hover * 0.5f), 8);
+            const float done_width = font->CalcTextSizeA(13, 1000, 0, "Done").x / scale;
+            label(172 + (84 - done_width) / 2, 268, "Done", 13, done_hover > 0.05f ? text : muted);
+            if (done_clicked)
+                ImGui::CloseCurrentPopup();
+            ImGui::PopID();
+            d = draw_backup;
+            origin = origin_backup;
             ImGui::EndPopup();
         }
-        ImGui::PopStyleColor(6);
-        ImGui::PopStyleVar(6);
+        ImGui::PopStyleColor(2);
+        ImGui::PopStyleVar(3);
         ImGui::PopID();
         return 36;
     }
@@ -510,6 +630,8 @@ void module_settings(Canvas &c, ModuleState &state, const std::string &) {
     scroll_targets_.clear();
     scroll_animations_.clear();
     range_handles_.clear();
+    color_hues_.clear();
+    hex_buffers_.clear();
     entrance_.reset(0);
     content_fade_.reset(1);
     content_slide_.reset(0);
@@ -543,7 +665,7 @@ void Interface::render(State &s) {
                      ImGuiWindowFlags_NoSavedSettings |
                      (s.visible ? ImGuiWindowFlags_None : ImGuiWindowFlags_NoInputs));
     Canvas c{ImGui::GetWindowDrawList(), font_, origin, scale, icons_, tweens_, springs_,
-             scroll_targets_, scroll_animations_, range_handles_};
+             scroll_targets_, scroll_animations_, range_handles_, color_hues_, hex_buffers_};
     c.rect(1, 3, 770, 622, bg, 18);
     c.label(695, 6, "limitless gui", 16, muted);
     c.d->PushClipRect(c.p(0, 30), c.p(182, 480), true);
