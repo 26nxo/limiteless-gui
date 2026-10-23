@@ -952,8 +952,8 @@ void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
     int remove = -1;
     for (int i = 0; i < static_cast<int>(configs.entries.size()); ++i) {
         auto &entry = configs.entries[static_cast<size_t>(i)];
-        c.rect(225, y, 522, 34, blend(panel, text, 0.025f), 6);
-        c.d->PushClipRect(c.p(233, y), c.p(587, y + 34), true);
+        c.rect(225, y - 2, 514, 38, blend(panel, text, 0.025f), 6);
+        c.d->PushClipRect(c.p(233, y - 2), c.p(587, y + 36), true);
         c.label(233, y + 9, entry.name.c_str(), 15, text);
         c.d->PopClipRect();
         const auto index = std::to_string(i);
@@ -966,7 +966,7 @@ void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
         if (c.icon_button(("delete_" + index).c_str(), icons::trash, "Delete", 691, y + 3, 40, danger,
                           false))
             remove = i;
-        y += 42;
+        y += 46;
     }
     if (remove >= 0) {
         remove_config_file(configs.entries[static_cast<size_t>(remove)].name);
