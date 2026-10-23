@@ -13,13 +13,22 @@ struct SettingsState {
     int theme = 0;
     float scale = 1.0f;
     bool animations = true;
+    bool show_profile = true;
+    bool close_on_escape = true;
+    ImGuiKey menu_key = ImGuiKey_Insert;
+    bool binding_key = false;
     std::array<float, 4> accent{0.92f, 0.25f, 0.47f, 1.0f};
     bool accent_open = false;
 };
 
+struct ConfigEntry {
+    std::string name;
+    SettingsState settings;
+};
+
 struct ConfigsState {
     std::string name;
-    std::vector<std::string> entries;
+    std::vector<ConfigEntry> entries;
 };
 
 struct State {
@@ -27,6 +36,7 @@ struct State {
     Category category = Category::Settings;
     SettingsState settings;
     ConfigsState configs;
+    ImTextureID avatar = 0;
 };
 
 class Interface {

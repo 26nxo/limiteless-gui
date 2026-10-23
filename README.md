@@ -16,9 +16,11 @@ run `build/Release/limitless_gui.exe` with its `assets` folder alongside it.
 
 ## preview
 
-the sidebar keeps all categories. modules were removed, so only settings and configs show content; the other categories open empty. settings and configs use the custom combobox, slider, toggle, color picker, text input, and button widgets. press insert to fade the menu in or out.
+the sidebar keeps all categories. modules were removed, so only settings and configs show content; the other categories open empty. settings and configs use the custom combobox, slider, toggle, color picker, text input, and button widgets.
 
-use `--category combat`, `--category configs`, or another category name to choose the opening page. add `--screenshot capture.bmp` to save a settled frame and exit.
+settings changes the theme, accent color, menu scale, animations, profile visibility, menu key, and escape behavior immediately. configs create, load, save, and delete in-memory snapshots of the current settings. the preview loads `assets/steve.bmp` for the profile picture; set `State::avatar` to use another texture.
+
+press the menu key (insert by default) to fade the menu in or out. use `--category combat`, `--category configs`, or another category name to choose the opening page. add `--screenshot capture.bmp` to save a settled frame and exit.
 
 ## references
 

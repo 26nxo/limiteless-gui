@@ -8,15 +8,65 @@
 
 namespace limitless_gui {
 namespace {
-constexpr ImU32 bg = IM_COL32(22, 22, 22, 255), panel = IM_COL32(17, 17, 17, 255);
-constexpr ImU32 text = IM_COL32(197, 197, 197, 255), muted = IM_COL32(111, 111, 111, 255);
-constexpr ImU32 pink = IM_COL32(222, 73, 119, 255), border = IM_COL32(40, 40, 40, 255);
+ImU32 bg = IM_COL32(22, 22, 22, 255), panel = IM_COL32(17, 17, 17, 255);
+ImU32 text = IM_COL32(197, 197, 197, 255), muted = IM_COL32(111, 111, 111, 255);
+ImU32 pink = IM_COL32(222, 73, 119, 255), border = IM_COL32(40, 40, 40, 255);
 ImU32 blend(ImU32 first, ImU32 second, float t) {
     const ImVec4 a = ImGui::ColorConvertU32ToFloat4(first);
     const ImVec4 b = ImGui::ColorConvertU32ToFloat4(second);
     t = std::clamp(t, 0.0f, 1.0f);
     return ImGui::ColorConvertFloat4ToU32({a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t,
                                            a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t});
+}
+void apply_palette(const SettingsState &settings) {
+    switch (std::clamp(settings.theme, 0, 2)) {
+    case 1:
+        bg = IM_COL32(18, 20, 27, 255);
+        panel = IM_COL32(13, 15, 21, 255);
+        text = IM_COL32(205, 208, 222, 255);
+        muted = IM_COL32(99, 104, 122, 255);
+        border = IM_COL32(35, 38, 50, 255);
+        break;
+    case 2:
+        bg = IM_COL32(10, 10, 10, 255);
+        panel = IM_COL32(6, 6, 6, 255);
+        text = IM_COL32(236, 236, 236, 255);
+        muted = IM_COL32(135, 135, 135, 255);
+        border = IM_COL32(55, 55, 55, 255);
+        break;
+    default:
+        bg = IM_COL32(22, 22, 22, 255);
+        panel = IM_COL32(17, 17, 17, 255);
+        text = IM_COL32(197, 197, 197, 255);
+        muted = IM_COL32(111, 111, 111, 255);
+        border = IM_COL32(40, 40, 40, 255);
+        break;
+    }
+    const auto accent = settings.accent;
+    pink = ImGui::ColorConvertFloat4ToU32({std::clamp(accent[0], 0.0f, 1.0f),
+                                           std::clamp(accent[1], 0.0f, 1.0f),
+                                           std::clamp(accent[2], 0.0f, 1.0f),
+                                           std::clamp(accent[3], 0.0f, 1.0f)});
+    auto &style = ImGui::GetStyle();
+    const auto color = [](ImU32 value) { return ImGui::ColorConvertU32ToFloat4(value); };
+    const ImU32 popup = blend(panel, text, 0.04f);
+    const ImU32 field = blend(panel, text, 0.06f);
+    style.Colors[ImGuiCol_Text] = color(text);
+    style.Colors[ImGuiCol_TextSelectedBg] = color(blend(popup, pink, 0.45f));
+    style.Colors[ImGuiCol_Border] = color(border);
+    style.Colors[ImGuiCol_PopupBg] = color(popup);
+    style.Colors[ImGuiCol_FrameBg] = color(field);
+    style.Colors[ImGuiCol_FrameBgHovered] = color(blend(field, text, 0.04f));
+    style.Colors[ImGuiCol_FrameBgActive] = color(blend(field, text, 0.08f));
+    style.Colors[ImGuiCol_Header] = color(blend(popup, pink, 0.18f));
+    style.Colors[ImGuiCol_HeaderHovered] = color(blend(popup, pink, 0.26f));
+    style.Colors[ImGuiCol_HeaderActive] = color(blend(popup, pink, 0.34f));
+    style.Colors[ImGuiCol_ScrollbarBg] = color(panel);
+    style.Colors[ImGuiCol_ScrollbarGrab] = color(blend(field, text, 0.06f));
+    style.Colors[ImGuiCol_ScrollbarGrabHovered] = color(blend(field, text, 0.12f));
+    style.Colors[ImGuiCol_ScrollbarGrabActive] = color(blend(field, pink, 0.45f));
+    style.Colors[ImGuiCol_Separator] = color(border);
+    style.Colors[ImGuiCol_CheckMark] = color(pink);
 }
 struct Canvas {
     ImDrawList *d;
@@ -25,6 +75,7 @@ struct Canvas {
     ImVec2 origin;
     float scale;
     ImFont *icon_font;
+    bool animations;
     std::map<ImGuiID, Animation> &tweens;
     std::map<ImGuiID, Spring> &springs;
     std::map<ImGuiID, float> &scroll_targets;
@@ -42,10 +93,16 @@ struct Canvas {
     }
     float animate(const char *id, float target, float duration, Easing easing = Easing::CubicOut,
                   bool snap = false) {
-        return tweens[ImGui::GetID(id)].update(target, ImGui::GetIO().DeltaTime, duration, snap, easing);
+        return tweens[ImGui::GetID(id)].update(target, ImGui::GetIO().DeltaTime, duration,
+                                               snap || !animations, easing);
     }
     float spring(const char *id, float target, float stiffness = 560, float damping = 42) {
-        return springs[ImGui::GetID(id)].update(target, ImGui::GetIO().DeltaTime, stiffness, damping);
+        auto &value = springs[ImGui::GetID(id)];
+        if (!animations) {
+            value.reset(target);
+            return target;
+        }
+        return value.update(target, ImGui::GetIO().DeltaTime, stiffness, damping);
     }
     void smooth_scroll(const char *id) {
         const ImGuiID key = ImGui::GetID(id);
@@ -58,6 +115,11 @@ struct Canvas {
         if (ImGui::IsWindowHovered() && io.MouseWheel != 0.0f)
             target->second -= io.MouseWheel * 110.0f * scale;
         target->second = std::clamp(target->second, 0.0f, maximum);
+        if (!animations) {
+            scroll_animations[key].reset(target->second);
+            ImGui::SetScrollY(target->second);
+            return;
+        }
         ImGui::SetScrollY(scroll_animations[key].update(target->second, io.DeltaTime, 0.22f, false,
                                                        Easing::ExpoOut));
     }
@@ -70,7 +132,7 @@ struct Canvas {
         ImGui::SetNextWindowSize({width * scale, height * scale});
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * fade);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {14 * scale, 8 * scale});
-        if (ImGui::BeginPopup(id))
+        if (ImGui::BeginPopup(id, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings))
             return true;
         ImGui::PopStyleVar(2);
         return false;
@@ -94,7 +156,8 @@ struct Canvas {
         const bool open = ImGui::IsPopupOpen(id);
         const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
-        rect(225, y, 514, 38, blend(IM_COL32(22, 22, 22, 255), IM_COL32(27, 27, 27, 255), hover), 6);
+        const ImU32 field = blend(panel, text, 0.03f);
+        rect(225, y, 514, 38, blend(field, blend(field, text, 0.04f), hover), 6);
         outline(225, y, 514, 38, border, 6);
         label(238, y + 11, name, 15, text);
         right(699, y + 11, options[selected], 15, text);
@@ -104,8 +167,9 @@ struct Canvas {
         line(723, y + 19 + direction * 3, 728, y + 19 - direction * 3, muted, 1.5f);
         if (clicked)
             ImGui::OpenPopup(id);
-        ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(16, 16, 16, 255));
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(16, 16, 16, 255));
+        const ImU32 popup = blend(panel, text, 0.05f);
+        ImGui::PushStyleColor(ImGuiCol_Header, blend(popup, pink, 0.18f));
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, popup);
         if (begin_popup(id, 225, y + 40, 514, count * 24.0f + 16)) {
             ImGui::SetWindowFontScale(0.70f * scale);
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 0});
@@ -127,10 +191,11 @@ struct Canvas {
         const bool clicked = hit("button", x, y, width, 28);
         const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
-        rect(x, y, width, 28, blend(IM_COL32(34, 34, 34, 255), pink, hover * 0.8f), 6);
+        rect(x, y, width, 28, blend(blend(panel, text, 0.08f), pink, hover * 0.8f), 6);
         outline(x, y, width, 28, blend(border, pink, hover), 6);
         const float text_width = font->CalcTextSizeA(13, 10000, 0, caption).x;
-        label(x + (width - text_width) / 2, y + 7, caption, 13, hover > 0.5f ? text : muted);
+        label(x + (width - text_width) / 2, y + 7, caption, 13,
+              hover > 0.5f ? blend(pink, IM_COL32(0, 0, 0, 255), 0.8f) : muted);
         ImGui::PopID();
         return clicked;
     }
@@ -142,7 +207,8 @@ struct Canvas {
         const float checked = animate("checked", value ? 1.0f : 0.0f, 0.14f, Easing::Smoothstep);
         const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.10f,
                                     Easing::Smoothstep);
-        rect(x, y, 22, 22, blend(IM_COL32(27, 27, 27, 255), IM_COL32(37, 37, 37, 255), hover), 5);
+        const ImU32 base = blend(panel, text, 0.05f);
+        rect(x, y, 22, 22, blend(base, blend(base, text, 0.05f), hover), 5);
         outline(x, y, 22, 22, blend(border, pink, checked), 5);
         if (checked > 0.01f) {
             line(x + 5, y + 11, x + 9, y + 15, pink, 2);
@@ -216,7 +282,7 @@ struct Canvas {
             range_handles.erase(range_id);
         const float first = std::clamp(range[0] / maximum, 0.0f, 1.0f);
         const float second = std::clamp(range[1] / maximum, 0.0f, 1.0f);
-        rect(249, y + 20, 464, 10, IM_COL32(22, 22, 22, 255), 5);
+        rect(249, y + 20, 464, 10, blend(panel, text, 0.03f), 5);
         slider_fill(249 + 464 * first, y + 25, 464 * (second - first), true);
         const float value_y = compact ? y : y + 37;
         numeric_value("lower", 613, value_y, 54, range[0], 0, range[1], compact ? "%.1f" : "%.0f");
@@ -264,9 +330,10 @@ struct Canvas {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0, 0});
         ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 16 * scale);
         ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, scale);
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(18, 18, 18, 255));
-        ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(44, 44, 44, 255));
-        if (ImGui::BeginPopup("color_editor")) {
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, panel);
+        ImGui::PushStyleColor(ImGuiCol_Border, border);
+        if (ImGui::BeginPopup("color_editor",
+                              ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings)) {
             const ImVec2 origin_backup = origin;
             ImDrawList *draw_backup = d;
             origin = ImGui::GetWindowPos();
@@ -369,10 +436,11 @@ struct Canvas {
             ImGui::SetNextItemWidth(204 * scale);
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8 * scale);
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {10 * scale, 7 * scale});
-            ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(25, 25, 25, 255));
-            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(32, 32, 32, 255));
-            ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(36, 36, 36, 255));
-            ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(44, 44, 44, 255));
+            const ImU32 field = blend(panel, text, 0.06f);
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, field);
+            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, blend(field, text, 0.04f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgActive, blend(field, text, 0.08f));
+            ImGui::PushStyleColor(ImGuiCol_Border, border);
             ImGui::PushStyleColor(ImGuiCol_Text, text);
             if (ImGui::InputText("##hex", hex.data(), hex.size(),
                                  ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase) &&
@@ -414,7 +482,7 @@ struct Canvas {
             summary = "None";
         const bool clicked = hit("field", 225, y, 514, 38);
         const bool open = ImGui::IsPopupOpen(id);
-        rect(225, y, 514, 38, IM_COL32(22, 22, 22, 255), 6);
+        rect(225, y, 514, 38, blend(panel, text, 0.03f), 6);
         outline(225, y, 514, 38, border, 6);
         label(238, y + 11, caption, 15, text);
         d->PushClipRect(p(405, y), p(700, y + 38), true);
@@ -426,8 +494,9 @@ struct Canvas {
         line(723, y + 19 + direction * 3, 728, y + 19 - direction * 3, muted, 1.5f);
         if (clicked)
             ImGui::OpenPopup(id);
-        ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(16, 16, 16, 255));
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, IM_COL32(16, 16, 16, 255));
+        const ImU32 popup = blend(panel, text, 0.05f);
+        ImGui::PushStyleColor(ImGuiCol_Header, blend(popup, pink, 0.18f));
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, popup);
         if (begin_popup(id, 225, y + 40, 514, count * 24.0f + 16)) {
             ImGui::SetWindowFontScale(0.70f * scale);
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 0});
@@ -446,7 +515,7 @@ struct Canvas {
         ImGui::PushID(id);
         ImGui::SetCursorScreenPos(p(225, y + 22));
         ImGui::SetNextItemWidth(514 * scale);
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(26, 26, 26, 255));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, blend(panel, text, 0.06f));
         ImGui::PushStyleColor(ImGuiCol_Text, text);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {9 * scale, 6 * scale});
         ImGui::PushFont(regular);
@@ -493,12 +562,11 @@ struct Canvas {
                                     Easing::Smoothstep);
         const float on = animate("on", value ? 1.0f : 0.0f, 0.16f, Easing::Smoothstep);
         const float knob = spring("knob", value ? 1.0f : 0.0f, 650, 40);
-        rect(x, y, 44, 24, blend(blend(IM_COL32(27, 27, 27, 255), IM_COL32(32, 32, 32, 255), hover),
-                                 pink, on),
-             12);
-        outline(x, y, 44, 24, blend(border, IM_COL32(58, 58, 58, 255), hover * 0.7f), 12);
+        const ImU32 base = blend(panel, text, 0.05f);
+        rect(x, y, 44, 24, blend(blend(base, blend(base, text, 0.04f), hover), pink, on), 12);
+        outline(x, y, 44, 24, blend(border, blend(border, text, 0.2f), hover * 0.7f), 12);
         circle(x + 12 + 20 * knob, y + 12, 9,
-               blend(IM_COL32(63, 63, 63, 255), IM_COL32(33, 26, 29, 255), on));
+               blend(blend(base, text, 0.18f), blend(pink, IM_COL32(0, 0, 0, 255), 0.8f), on));
         ImGui::PopID();
     }
     void slider_fill(float x, float center_y, float width, bool range = false) {
@@ -507,17 +575,18 @@ struct Canvas {
         const float inset = std::min(5.0f, width / 2);
         const float radius = std::min(3.0f, inset * 0.7f);
         rect(x, center_y - 5, width, 10, pink, 5);
+        const ImU32 handle = blend(pink, IM_COL32(0, 0, 0, 255), 0.75f);
         if (range)
-            circle(x + inset, center_y, radius, IM_COL32(53, 24, 36, 255));
-        circle(x + width - inset, center_y, radius, IM_COL32(53, 24, 36, 255));
+            circle(x + inset, center_y, radius, handle);
+        circle(x + width - inset, center_y, radius, handle);
     }
-    void slider(const char *id, const char *name, float y, float &value, float maximum, float step,
-                const char *format) {
+    void slider(const char *id, const char *name, float y, float &value, float minimum, float maximum,
+                float step, const char *format) {
         label(225, y, name);
         ImGui::PushID(id);
-        numeric_value("number", 675, y - 2, 64, value, 0, maximum, format);
+        numeric_value("number", 675, y - 2, 64, value, minimum, maximum, format);
         if (hit("minus", 224, y + 16, 22, 22))
-            value = std::max(0.0f, value - step);
+            value = std::max(minimum, value - step);
         const float minus_hover = animate("minus_hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.10f,
                                           Easing::Smoothstep);
         glyph(icons::minus, 235, y + 25, 11, blend(muted, text, minus_hover));
@@ -529,19 +598,79 @@ struct Canvas {
         hit("track", 249, y + 17, 464, 20);
         const bool active = ImGui::IsItemActive();
         const bool hovered = ImGui::IsItemHovered();
-        if (active)
-            value = std::clamp(
-                std::round(((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464 * maximum / step) *
-                    step,
-                0.0f, maximum);
-        const float ratio = maximum > 0 ? value / maximum : 0;
+        const float span = (std::max)(maximum - minimum, 0.0001f);
+        if (active) {
+            const float ratio = std::clamp(
+                ((ImGui::GetIO().MousePos.x - origin.x) / scale - 249) / 464, 0.0f, 1.0f);
+            value = std::clamp(std::round((minimum + ratio * span) / step) * step, minimum, maximum);
+        }
+        const float ratio = (value - minimum) / span;
         const float display = animate("fill", ratio, 0.18f, Easing::ExpoOut, active);
         const float hover = animate("bar_hover", (active || hovered) ? 1.0f : 0.0f, 0.12f,
                                     Easing::Smoothstep);
-        rect(249, y + 20, 464, 10,
-             blend(IM_COL32(22, 22, 22, 255), IM_COL32(26, 26, 26, 255), hover), 5);
+        const ImU32 track = blend(panel, text, 0.03f);
+        rect(249, y + 20, 464, 10, blend(track, blend(track, text, 0.03f), hover), 5);
         slider_fill(249, y + 25, 464 * display);
         ImGui::PopID();
+    }
+    void keybind(const char *id, const char *caption, float y, ImGuiKey &key, bool &binding) {
+        ImGui::PushID(id);
+        label(225, y + 5, caption, 17, text);
+        const bool clicked = hit("field", 559, y, 180, 30);
+        if (clicked)
+            binding = !binding;
+        else if (binding && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            binding = false;
+        if (binding) {
+            for (int value = ImGuiKey_NamedKey_BEGIN; value < ImGuiKey_NamedKey_END; ++value) {
+                const ImGuiKey candidate = static_cast<ImGuiKey>(value);
+                if (candidate >= ImGuiKey_MouseLeft && candidate <= ImGuiKey_MouseWheelY)
+                    continue;
+                if (!ImGui::IsKeyPressed(candidate, false))
+                    continue;
+                if (candidate == ImGuiKey_Escape) {
+                    binding = false;
+                } else if (!(candidate >= ImGuiKey_LeftCtrl && candidate <= ImGuiKey_RightSuper)) {
+                    key = candidate;
+                    binding = false;
+                }
+                break;
+            }
+        }
+        const float hover = animate("hover", ImGui::IsItemHovered() ? 1.0f : 0.0f, 0.12f,
+                                    Easing::Smoothstep);
+        const ImU32 field = blend(panel, text, 0.04f);
+        rect(559, y, 180, 30, field, 7);
+        outline(559, y, 180, 30, blend(border, pink, binding ? 1.0f : hover * 0.5f), 7);
+        const char *value = binding ? "Press a key..." : ImGui::GetKeyName(key);
+        if (!value)
+            value = "Unbound";
+        const auto width = font->CalcTextSizeA(14, 10000, 0, value).x;
+        label(559 + (180 - width) / 2, y + 7, value, 14, binding ? pink : text);
+        ImGui::PopID();
+    }
+    void avatar(ImTextureID texture, float x, float y, float size) {
+        rect(x - 1, y - 1, size + 2, size + 2, border, 6);
+        if (texture) {
+            d->AddImageRounded(texture, p(x, y), p(x + size, y + size), {0, 0}, {1, 1},
+                               tint(IM_COL32_WHITE), 5 * scale);
+        } else {
+            static constexpr int face[8][8] = {
+                {0, 0, 0, 0, 0, 0, 0, 0}, {0, 1, 1, 1, 1, 1, 1, 0},
+                {1, 2, 2, 2, 2, 2, 2, 1}, {2, 4, 5, 2, 2, 4, 5, 2},
+                {2, 2, 3, 3, 3, 2, 2, 2}, {2, 8, 2, 2, 2, 2, 8, 2},
+                {2, 2, 7, 7, 7, 7, 2, 2}, {1, 2, 2, 3, 3, 2, 2, 1}};
+            static constexpr ImU32 colors[] = {
+                IM_COL32(43, 27, 18, 255),  IM_COL32(59, 38, 25, 255),  IM_COL32(181, 136, 105, 255),
+                IM_COL32(155, 109, 80, 255), IM_COL32(232, 232, 232, 255), IM_COL32(75, 95, 138, 255),
+                IM_COL32(142, 93, 67, 255), IM_COL32(90, 57, 40, 255),  IM_COL32(107, 70, 48, 255)};
+            const float cell = size / 8;
+            for (int row = 0; row < 8; ++row)
+                for (int col = 0; col < 8; ++col)
+                    rect(x + col * cell, y + row * cell, cell + 0.5f, cell + 0.5f,
+                         colors[face[row][col]]);
+        }
+        outline(x - 1, y - 1, size + 2, size + 2, border, 6);
     }
     void glyph(const char *icon, float x, float y, float size, ImU32 color) {
         const float width = icon_font->CalcTextSizeA(size, 1000, 0, icon).x;
@@ -553,41 +682,94 @@ struct Canvas {
         glyph(symbols[static_cast<int>(category)], x, y, 22, c);
     }
 };
-constexpr const char *themes[] = {"Dark", "Midnight", "Light"};
+constexpr const char *themes[] = {"Dark", "Midnight", "Contrast"};
+
+SettingsState snapshot_settings(const SettingsState &source) {
+    auto snapshot = source;
+    snapshot.accent_open = false;
+    snapshot.binding_key = false;
+    return snapshot;
+}
+
+void load_settings(SettingsState &target, const SettingsState &source) {
+    target = snapshot_settings(source);
+}
 
 void settings_page(Canvas &c, SettingsState &state) {
     float y = 135;
+    c.label(225, y, "Appearance", 13, muted);
+    y += 24;
     c.combo("theme", "Theme", y, state.theme, themes, 3);
     y += 48;
-    c.slider("scale", "Menu scale", y, state.scale, 2, 0.05f, "%.2f");
-    y += 52;
+    y += c.color_picker("accent", "Accent color", y, state.accent, state.accent_open);
+    y += 6;
+    c.slider("scale", "Menu scale", y, state.scale, 0.75f, 1.0f, 0.05f, "%.2f");
+    y += 50;
     c.label(225, y + 3, "Enable animations", 17, state.animations ? text : muted);
     c.toggle("animations", 695, y, state.animations);
+    y += 40;
+    c.label(225, y + 3, "Show profile", 17, state.show_profile ? text : muted);
+    c.toggle("show_profile", 695, y, state.show_profile);
     y += 44;
-    y += c.color_picker("accent", "Accent color", y, state.accent, state.accent_open);
-    ImGui::SetCursorScreenPos(c.p(225, y));
+    c.line(225, y, 739, y, border, 1);
+    y += 16;
+    c.label(225, y, "Input", 13, muted);
+    y += 24;
+    c.keybind("menu_key", "Menu key", y, state.menu_key, state.binding_key);
+    y += 42;
+    c.label(225, y + 3, "Close on escape", 17, state.close_on_escape ? text : muted);
+    c.toggle("close_on_escape", 695, y, state.close_on_escape);
+    y += 44;
+    c.line(225, y, 739, y, border, 1);
+    y += 16;
+    if (c.button("reset_settings", "Reset settings", 225, y, 170))
+        state = SettingsState{};
+    y += 40;
+    c.label(225, y, "Changes apply immediately.", 13, muted);
+    ImGui::SetCursorScreenPos(c.p(225, y + 20));
     ImGui::Dummy({1, 1});
 }
 
-void configs_page(Canvas &c, ConfigsState &state) {
+void configs_page(Canvas &c, ConfigsState &configs, SettingsState &settings) {
     float y = 135;
-    c.text_input("config_name", "Config name", y, state.name);
+    c.text_input("config_name", "Config name", y, configs.name);
     y += 72;
-    if (c.button("create", "Create config", 225, y) && !state.name.empty() &&
-        std::find(state.entries.begin(), state.entries.end(), state.name) == state.entries.end()) {
-        state.entries.push_back(state.name);
-        state.name.clear();
+    const bool duplicate = std::any_of(configs.entries.begin(), configs.entries.end(),
+                                       [&](const ConfigEntry &entry) { return entry.name == configs.name; });
+    if (c.button("create", "Create config", 225, y, 180) && !configs.name.empty() && !duplicate) {
+        configs.entries.push_back({configs.name, snapshot_settings(settings)});
+        configs.name.clear();
     }
+    if (duplicate)
+        c.label(415, y + 8, "Name already exists", 13, muted);
     y += 44;
-    for (auto it = state.entries.begin(); it != state.entries.end();) {
-        c.label(225, y + 5, it->c_str(), 15);
-        if (c.button(it->c_str(), "Remove", 649, y, 90))
-            it = state.entries.erase(it);
-        else
-            ++it;
-        y += 40;
+    c.line(225, y, 739, y, border, 1);
+    y += 16;
+    char summary[64];
+    std::snprintf(summary, sizeof(summary), "Saved configs (%d)", static_cast<int>(configs.entries.size()));
+    c.label(225, y, summary, 13, muted);
+    y += 28;
+    if (configs.entries.empty())
+        c.label(225, y + 6, "No configs yet", 15, muted);
+    int remove = -1;
+    for (int i = 0; i < static_cast<int>(configs.entries.size()); ++i) {
+        auto &entry = configs.entries[static_cast<size_t>(i)];
+        c.rect(225, y, 514, 30, blend(panel, text, 0.025f), 6);
+        c.d->PushClipRect(c.p(233, y), c.p(518, y + 30), true);
+        c.label(233, y + 7, entry.name.c_str(), 15, text);
+        c.d->PopClipRect();
+        const auto index = std::to_string(i);
+        if (c.button(("load_" + index).c_str(), "Load", 531, y, 62))
+            load_settings(settings, entry.settings);
+        if (c.button(("save_" + index).c_str(), "Save", 601, y, 62))
+            entry.settings = snapshot_settings(settings);
+        if (c.button(("delete_" + index).c_str(), "Delete", 671, y, 68))
+            remove = i;
+        y += 38;
     }
-    ImGui::SetCursorScreenPos(c.p(225, y));
+    if (remove >= 0)
+        configs.entries.erase(configs.entries.begin() + remove);
+    ImGui::SetCursorScreenPos(c.p(225, y + 24));
     ImGui::Dummy({1, 1});
 }
 } // namespace
@@ -644,14 +826,25 @@ bool Interface::initialize(const char *path, const char *icon_path) {
 void Interface::render(State &s) {
     auto &io = ImGui::GetIO();
     const float dt = io.DeltaTime;
-    if (!io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Insert, false))
+    const bool animations = s.settings.animations;
+    const bool popup_open =
+        ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
+    if (!io.WantTextInput && !s.settings.binding_key && !popup_open &&
+        s.settings.menu_key != ImGuiKey_None && ImGui::IsKeyPressed(s.settings.menu_key, false))
         s.visible = !s.visible;
-    const float menu_alpha = entrance_.update(s.visible ? 1.0f : 0.0f, dt, 0.18f, false,
-                                             Easing::Smoothstep);
+    if (s.visible && !io.WantTextInput && !s.settings.binding_key && !popup_open &&
+        s.settings.close_on_escape && ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+        s.visible = false;
+    if (!s.visible || s.category != Category::Settings)
+        s.settings.binding_key = false;
+    const float menu_alpha =
+        entrance_.update(s.visible ? 1.0f : 0.0f, dt, 0.18f, !animations, Easing::Smoothstep);
     if (!s.visible && menu_alpha <= 0.001f)
         return;
+    apply_palette(s.settings);
     const auto size = io.DisplaySize;
-    const float scale = std::min(size.x / 772.0f, size.y / 625.0f);
+    const float scale =
+        std::min(size.x / 772.0f, size.y / 625.0f) * std::clamp(s.settings.scale, 0.75f, 1.0f);
     const ImVec2 origin{(size.x - 772 * scale) / 2, (size.y - 625 * scale) / 2};
     ImGui::SetNextWindowPos({0, 0});
     ImGui::SetNextWindowSize(size);
@@ -661,11 +854,11 @@ void Interface::render(State &s) {
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove |
                      ImGuiWindowFlags_NoSavedSettings |
                      (s.visible ? ImGuiWindowFlags_None : ImGuiWindowFlags_NoInputs));
-    Canvas c{ImGui::GetWindowDrawList(), font_, regular_, origin, scale, icons_, tweens_, springs_,
-             scroll_targets_, scroll_animations_, range_handles_, color_hues_, hex_buffers_};
+    Canvas c{ImGui::GetWindowDrawList(), font_, regular_, origin, scale, icons_, animations, tweens_,
+             springs_, scroll_targets_, scroll_animations_, range_handles_, color_hues_, hex_buffers_};
     c.rect(1, 3, 770, 622, bg, 18);
     c.right(758, 7, "timewarp", 14, muted);
-    const ImU32 logo = IM_COL32(48, 48, 48, 255);
+    const ImU32 logo = blend(bg, text, 0.1f);
     c.glyph("\xef\x89\x94", 89, 586, 66, logo);
     constexpr Category categories[] = {Category::Combat, Category::Player,  Category::Move,    Category::Visuals,
                                        Category::Misc,   Category::Friends, Category::Configs, Category::Settings};
@@ -682,8 +875,14 @@ void Interface::render(State &s) {
     }
     const float selected_y = 47 + static_cast<int>(s.category) * 49.7f;
     const float selected_width = font_->CalcTextSizeA(17, 1000, 0, names[static_cast<int>(s.category)]).x + 57;
-    const float pill_y = category_y_.update(selected_y, dt, 560, 44);
-    const float pill_width = category_width_.update(selected_width, dt, 560, 44);
+    if (!animations) {
+        category_y_.reset(selected_y);
+        category_width_.reset(selected_width);
+    }
+    const float pill_y =
+        animations ? category_y_.update(selected_y, dt, 560, 44) : selected_y;
+    const float pill_width =
+        animations ? category_width_.update(selected_width, dt, 560, 44) : selected_width;
     c.rect(14, pill_y, pill_width, 42, pink, 22);
     std::array<float, category_count> hover_weights{};
     for (int i = 0; i < category_count; ++i) {
@@ -698,13 +897,16 @@ void Interface::render(State &s) {
         const float y = 47 + i * 49.7f;
         const float selected = std::clamp(1.0f - std::abs(pill_y - y) / 49.7f, 0.0f, 1.0f);
         const ImU32 base = blend(muted, text, hover_weights[i] * 0.35f);
-        const auto color = blend(base, IM_COL32(43, 24, 32, 255), selected);
+        const auto color = blend(base, blend(pink, IM_COL32(0, 0, 0, 255), 0.8f), selected);
         c.icon(categories[i], 38, y + 21, color);
         c.label(62, y + 12, names[i], 17, color);
     }
-    c.label(25, 571, "dev", 13);
-    c.label(25, 591, "30 days", 10, muted);
-    c.rect(182, 29, 589, 596, IM_COL32(14, 14, 14, 255), 17);
+    if (s.settings.show_profile) {
+        c.avatar(s.avatar, 17, 568, 44);
+        c.label(72, 571, "dev", 13);
+        c.label(72, 591, "30 days", 10, muted);
+    }
+    c.rect(182, 29, 589, 596, blend(bg, IM_COL32(0, 0, 0, 255), 0.22f), 17);
     c.rect(200, 45, 555, 566, panel, 9);
     if (!content_initialized_) {
         previous_category_ = s.category;
@@ -713,18 +915,25 @@ void Interface::render(State &s) {
         content_slide_.reset(0);
     } else if (previous_category_ != s.category) {
         const float direction = static_cast<int>(s.category) > static_cast<int>(previous_category_) ? 1.0f : -1.0f;
-        content_fade_.reset(0);
-        content_slide_.reset(direction * 10.0f);
+        if (animations) {
+            content_fade_.reset(0);
+            content_slide_.reset(direction * 10.0f);
+        }
         previous_category_ = s.category;
     }
+    if (!animations) {
+        content_fade_.reset(1);
+        content_slide_.reset(0);
+    }
     const float content_alpha =
-        content_fade_.update(1, dt, layout::page_transition, false, Easing::Smoothstep);
-    c.origin.x += content_slide_.update(0, dt, 0.22f, false, Easing::ExpoOut) * scale;
+        content_fade_.update(1, dt, layout::page_transition, !animations, Easing::Smoothstep);
+    c.origin.x +=
+        content_slide_.update(0, dt, 0.22f, !animations, Easing::ExpoOut) * scale;
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * content_alpha);
     ImGui::PushID(static_cast<int>(s.category));
     const char *title = names[static_cast<int>(s.category)];
     c.label(224, 62, title, 22);
-    c.line(225, 110, 739, 110, IM_COL32(31, 31, 31, 255), 1);
+    c.line(225, 110, 739, 110, border, 1);
     ImGui::SetCursorScreenPos(c.p(210, 124));
     ImGui::BeginChild("direct_page", {540 * scale, 479 * scale}, ImGuiChildFlags_None,
                       ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar |
@@ -735,7 +944,7 @@ void Interface::render(State &s) {
     if (s.category == Category::Settings)
         settings_page(c, s.settings);
     else if (s.category == Category::Configs)
-        configs_page(c, s.configs);
+        configs_page(c, s.configs, s.settings);
     else
         c.label(225, 320, "No modules", 15, muted);
     ImGui::EndChild();

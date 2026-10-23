@@ -1,5 +1,6 @@
 #include <backends/imgui_impl_dx11.h>
 #include <backends/imgui_impl_win32.h>
+#include <cstdint>
 #include <d3d11.h>
 #include <filesystem>
 #include <fstream>
@@ -16,6 +17,7 @@ ID3D11Device *device = nullptr;
 ID3D11DeviceContext *context = nullptr;
 IDXGISwapChain *swap_chain = nullptr;
 ID3D11RenderTargetView *target = nullptr;
+ID3D11ShaderResourceView *avatar_texture = nullptr;
 bool capture_frame(const std::filesystem::path &path) {
     Microsoft::WRL::ComPtr<ID3D11Texture2D> buffer, staging;
     if (FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&buffer))))
@@ -62,6 +64,59 @@ bool capture_frame(const std::filesystem::path &path) {
     file.close();
     return !file.fail();
 }
+ID3D11ShaderResourceView *load_bmp_texture(const std::filesystem::path &path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file)
+        return nullptr;
+    BITMAPFILEHEADER header{};
+    BITMAPINFOHEADER info{};
+    file.read(reinterpret_cast<char *>(&header), sizeof(header));
+    file.read(reinterpret_cast<char *>(&info), sizeof(info));
+    if (header.bfType != 0x4d42 || info.biCompression != BI_RGB || info.biWidth <= 0 ||
+        info.biHeight == 0 || (info.biBitCount != 24 && info.biBitCount != 32))
+        return nullptr;
+    const int width = info.biWidth;
+    const int height = info.biHeight < 0 ? -info.biHeight : info.biHeight;
+    const int bytes = info.biBitCount / 8;
+    const int pitch = ((width * bytes + 3) / 4) * 4;
+    std::vector<unsigned char> source(static_cast<size_t>(pitch) * height);
+    file.seekg(static_cast<std::streamoff>(header.bfOffBits));
+    file.read(reinterpret_cast<char *>(source.data()), static_cast<std::streamsize>(source.size()));
+    if (!file)
+        return nullptr;
+    std::vector<unsigned char> pixels(static_cast<size_t>(width) * height * 4);
+    for (int y = 0; y < height; ++y) {
+        const auto *row = source.data() + static_cast<size_t>(info.biHeight > 0 ? height - 1 - y : y) * pitch;
+        auto *dest = pixels.data() + static_cast<size_t>(y) * width * 4;
+        for (int x = 0; x < width; ++x) {
+            dest[x * 4] = row[x * bytes + 2];
+            dest[x * 4 + 1] = row[x * bytes + 1];
+            dest[x * 4 + 2] = row[x * bytes];
+            dest[x * 4 + 3] = bytes == 4 ? row[x * bytes + 3] : 255;
+        }
+    }
+    D3D11_TEXTURE2D_DESC description{};
+    description.Width = static_cast<UINT>(width);
+    description.Height = static_cast<UINT>(height);
+    description.MipLevels = 1;
+    description.ArraySize = 1;
+    description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    description.SampleDesc.Count = 1;
+    description.Usage = D3D11_USAGE_IMMUTABLE;
+    description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    D3D11_SUBRESOURCE_DATA data{pixels.data(), static_cast<UINT>(width * 4), 0};
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+    if (FAILED(device->CreateTexture2D(&description, &data, &texture)))
+        return nullptr;
+    D3D11_SHADER_RESOURCE_VIEW_DESC view{};
+    view.Format = description.Format;
+    view.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    view.Texture2D.MipLevels = 1;
+    ID3D11ShaderResourceView *result = nullptr;
+    if (FAILED(device->CreateShaderResourceView(texture.Get(), &view, &result)))
+        return nullptr;
+    return result;
+}
 bool make_target() {
     ID3D11Texture2D *buffer = nullptr;
     if (FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&buffer))))
@@ -89,6 +144,8 @@ LRESULT WINAPI window_proc(HWND window, UINT message, WPARAM w, LPARAM l) {
     return DefWindowProcW(window, message, w, l);
 }
 void cleanup() {
+    if (avatar_texture)
+        avatar_texture->Release();
     if (target)
         target->Release();
     if (swap_chain)
@@ -178,6 +235,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
     ImGui_ImplWin32_Init(window);
     ImGui_ImplDX11_Init(device, context);
+    avatar_texture = load_bmp_texture(std::filesystem::path(executable).parent_path() / "assets/steve.bmp");
+    state.avatar = static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(avatar_texture));
     ShowWindow(window, SW_SHOWDEFAULT);
     UpdateWindow(window);
     bool running = true;

@@ -1,5 +1,6 @@
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <limitless_gui/limitless.hpp>
 #include <imgui_internal.h>
 #include <iostream>
@@ -51,6 +52,8 @@ int main() {
     limitless_gui::Interface ui;
     limitless_gui::State state;
     require(state.category == limitless_gui::Category::Settings, "settings page did not open by default");
+    require(state.settings.show_profile, "profile is hidden by default");
+    require(state.settings.menu_key == ImGuiKey_Insert, "default menu key is wrong");
     require(ui.initialize(LIMITLESS_GUI_TEST_FONT), "font initialization failed");
     auto &io = ImGui::GetIO();
     io.DisplaySize = {772, 625};
@@ -79,39 +82,82 @@ int main() {
     frame();
     frame();
     require(ImGui::GetDrawData()->TotalVtxCount > 0, "renderer produced no geometry");
-    click(400, 154);
-    click(300, 219);
+
+    click(300, 178);
+    click(400, 243);
     require(state.settings.theme == 1, "theme combobox selection failed");
-    const float scale = state.settings.scale;
-    click(730, 210);
-    require(state.settings.scale > scale, "settings slider increment failed");
-    click(717, 247);
-    require(!state.settings.animations, "settings toggle failed");
-    click(717, 291);
+    frame();
+    const auto midnight_text = ImGui::GetStyle().Colors[ImGuiCol_Text];
+    require(std::abs(midnight_text.x - 205.0f / 255.0f) < 0.01f, "theme palette was not applied");
+
+    click(717, 219);
     require(state.settings.accent_open, "accent color picker did not open");
+    bool popup_found = false;
+    for (ImGuiWindow *window : ImGui::GetCurrentContext()->Windows)
+        if (window->Name && std::strstr(window->Name, "##Popup_")) {
+            popup_found = true;
+            require((window->Flags & ImGuiWindowFlags_NoMove) != 0, "popup can still be moved");
+        }
+    require(popup_found, "popup window was not found");
     const auto previous_color = state.settings.accent;
-    click(600, 430);
+    click(600, 350);
     require(std::abs(state.settings.accent[0] - previous_color[0]) > 0.01f ||
                 std::abs(state.settings.accent[1] - previous_color[1]) > 0.01f ||
                 std::abs(state.settings.accent[2] - previous_color[2]) > 0.01f,
             "accent color field did not update the color");
-    click(716, 435);
+    click(716, 380);
     const float alpha = state.settings.accent[3];
     require(alpha > 0.05f && alpha < 0.95f, "accent opacity did not update");
     click(400, 350);
     require(!state.settings.accent_open, "accent color picker did not close");
+
+    const float previous_scale = state.settings.scale;
+    click(235, 276);
+    require(state.settings.scale < previous_scale, "menu scale decrement failed");
+    state.settings.scale = 1.0f;
+    frame();
+
+    click(717, 311);
+    require(!state.settings.animations, "animation toggle failed");
+    click(717, 351);
+    require(!state.settings.show_profile, "profile toggle failed");
+    click(717, 351);
+    require(state.settings.show_profile, "profile toggle did not restore");
+
+    click(650, 438);
+    require(state.settings.binding_key, "menu key binding did not start");
+    io.AddKeyEvent(ImGuiKey_F1, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_F1, false);
+    frame();
+    require(state.settings.menu_key == ImGuiKey_F1, "menu key binding did not update");
+
+    click(717, 477);
+    require(!state.settings.close_on_escape, "close on escape toggle failed");
+    click(717, 477);
+    require(state.settings.close_on_escape, "close on escape toggle did not restore");
+
     click(80, 366);
     require(state.category == limitless_gui::Category::Configs, "configs category did not open");
-    click(400, 170);
+    click(400, 172);
     io.AddInputCharactersUTF8("pvp");
     frame();
     require(state.configs.name == "pvp", "config name input failed");
-    click(300, 221);
-    require(state.configs.entries.size() == 1 && state.configs.entries[0] == "pvp",
+    click(315, 221);
+    require(state.configs.entries.size() == 1 && state.configs.entries[0].name == "pvp",
             "config creation failed");
     require(state.configs.name.empty(), "config name was not cleared");
-    click(690, 265);
-    require(state.configs.entries.empty(), "config removal failed");
+    state.settings.theme = 0;
+    click(562, 309);
+    require(state.settings.theme == 1, "config load failed");
+    state.settings.theme = 2;
+    click(632, 309);
+    state.settings.theme = 0;
+    click(562, 309);
+    require(state.settings.theme == 2, "config save failed");
+    click(705, 309);
+    require(state.configs.entries.empty(), "config deletion failed");
+
     click(80, 416);
     require(state.category == limitless_gui::Category::Settings, "settings category did not open");
     io.AddMousePosEvent(80, 68);
@@ -141,19 +187,16 @@ int main() {
     require(state.category == limitless_gui::Category::Visuals, "category drag failed at 150 percent scale");
     io.AddMouseButtonEvent(0, false);
     frame();
-    io.AddKeyEvent(ImGuiKey_Insert, true);
+
+    io.AddKeyEvent(ImGuiKey_Escape, true);
     frame();
-    io.AddKeyEvent(ImGuiKey_Insert, false);
-    require(!state.visible && ImGui::GetDrawData()->TotalVtxCount > 0, "menu did not fade out");
-    for (int i = 0; i < 20; ++i)
-        frame();
-    require(!state.visible && ImGui::GetDrawData()->TotalVtxCount == 0, "menu did not hide");
-    io.AddKeyEvent(ImGuiKey_Insert, true);
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    require(!state.visible && ImGui::GetDrawData()->TotalVtxCount == 0, "escape did not hide the menu");
+    io.AddKeyEvent(ImGuiKey_F1, true);
     frame();
-    io.AddKeyEvent(ImGuiKey_Insert, false);
-    for (int i = 0; i < 20; ++i)
-        frame();
-    require(state.visible && ImGui::GetDrawData()->TotalVtxCount > 0, "menu did not reappear");
+    io.AddKeyEvent(ImGuiKey_F1, false);
+    frame();
+    require(state.visible && ImGui::GetDrawData()->TotalVtxCount > 0, "custom menu key did not reopen the menu");
     ImGui::DestroyContext();
     std::cout << "limitless gui interaction checks passed\n";
 }
